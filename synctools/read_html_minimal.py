@@ -1,6 +1,6 @@
 """
 Typedefs:
-    PathParts :: (str, str, str, Optional(str))
+    PathParts :: (str, str, str)
     Path :: str
     Location :: str  - URL or local file path
 """
@@ -13,23 +13,17 @@ from fn import F, _
 from sync_media_function import sync_media
 from metafuncs import branch, combine, maybe, tryit, get
 
-
-from pymonad.List import List as ListM
-from monad.composable import Composable
-
-
 # Support functions
 unique = lambda sequence: list(set(sequence))
 get_html = html.parse  # :: str -> ElementTree
 img_tags = cssselect.CSSSelector('img')  # :: ElementTree -> List[Element]
-#get = lambda key, default=None: lambda obj: obj.get(key, default=default)
 get_src = maybe(get('src'),     # normal
             maybe(get('data-src'),  # photo pages
                 maybe(get('data-srcset'))))  # home page
 BACKGROUND_IMAGE_REGEX = re.compile(r'background-image: url\((.*?\))')
 read_page = lambda url: urllib2.urlopen(url).read()
 PATH_SPLIT_REGEX = re.compile(r'^(/media)/(.*)/(.*?\..*?)$')
-split_path_parts = lambda src: PATH_SPLIT_REGEX.match(src).groups()  # :: str -> (str, str, str)
+split_path_parts = lambda src: PATH_SPLIT_REGEX.match(src).groups()  # :: str -> PathPats
 
 # Composite work-horse functions
 # Retreive src-like properties from <img> tags
@@ -62,9 +56,6 @@ executor = fetch_paths >> F(map, sync_media)  # Location -> Side Effects! impure
 
 def main(location):
     """ Pull down all images referenced in a given HTML URL or file."""
-    
-
-    exp = ListM()
 
     tags = (F() >> get_html >> img_tags)(location)
     tag = tags[1]

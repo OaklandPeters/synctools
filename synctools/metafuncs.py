@@ -3,7 +3,18 @@
 Abstract meta-functions
 """
 import itertools
+import functools
 
+_identity = lambda x: x
+_compose = lambda f, g: lambda *args, **kwargs: f(g(*args, **kwargs))
+
+def compose(*callables):
+    def compose_wrapper(*args, **kwargs):
+        result = _identity
+        for func in callables:
+            result = _compose(result, func)
+        return result
+    return compose_wrapper
 
 def branch(*callables):
     """ Decorator. Invokes a series of functions with the same arguments.
@@ -19,7 +30,7 @@ def combine(iterables):
     return list(itertools.chain(*iterables))
 
 def maybe(func, _else=None):
-    """
+    """ Decorator, take _else branch if returns None.
     (a -> b) -> (a -> Optional[b])
     """
     def wrap_maybe(*args, **kwargs):
