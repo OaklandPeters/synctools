@@ -1,7 +1,9 @@
 """
+@todo: Validation for non-existing urls (and must begin with http://) if not os.path.exists
 @todo: Add the new css-code to the `classic` function
 @todo: Refactor the `classic` functions into their own file
 @todo: Make main() handle commandline arguments.
+@todo: Consider adding F & _ in this project, for people's approval
 
 
 Note: This doesn't work for Photo-pages, because the relevant URLS
@@ -13,6 +15,10 @@ Easiest solution: Selenium or whatever Josh is using for Live page unit-tests
 
 Uses the syntax using F and _ from
     https://github.com/kachayev/fn.py
+
+Typedefs:
+    PathParts :: (str, str, str, Optional(str))
+    Path :: str
 """
 import re
 import urllib2
@@ -23,19 +29,6 @@ from lxml.cssselect import CSSSelector
 
 from fn import F, _
 
-from sync_media_function import sync_media
-
-stub_html_file = "example_article_page.html"
-example_file = "example_page_2.html"
-example_url_1 = 'http://127.0.0.1:8000/photo/2015/06/a-trip-around-the-solar-system/396872/'
-example_src = '/media/img/mt/2015/06/rbow-1/lead_960.jpg?GE2DGNJVGE4DIMBVFYYA===='
-toc_url = 'http://127.0.0.1:8000/magazine/'
-
-
-
-
-
-
 
 def get_html(location):
     """ :: str -> ElementTree
@@ -43,13 +36,17 @@ def get_html(location):
     """
     return html.parse(location)
 
-
 def img_tags(tree):
     """ :: ElementTree -> List[Element] """
     return CSSSelector('img')(tree)
 
+
+
 def get_src(img_tag):
     """ Element -> str """
+    # maybe(_.call('get', 'src'),
+    #   maybe(_.call('get', 'data-src'),
+    #       maybe(_.call('get', 'data-srcset'))))
     src = img_tag.get('src')
     if src:
         return src
@@ -58,7 +55,36 @@ def get_src(img_tag):
         if src:
             return src
         else:
-            return None
+            src = img_tag.get('data-srcset')
+            if src:
+                return src
+            else:
+                return None
+
+
+# def get(key, default=None):
+#     def wrap_get(obj):
+#         return obj.get(key, default=None)
+#     return wrap_get
+
+get = lambda key, default=None: _.call('get', key, default=default)
+
+def maybe(func, _else=None):
+    def wrap_maybe(obj):
+        result = func(obj)
+        if result != None:
+            return result
+        else:
+            if callable(_else):
+                return _else(obj)
+            else:
+                return _else
+    return wrap_maybe
+
+try_get_src = maybe(get('src'),
+                maybe(get('data-src'),
+                    maybe(get('data-srcset'))))
+
 
 def startswith(word):
     """ str -> (str -> bool) """
@@ -110,9 +136,6 @@ def combine(iterables):
 
 
 
-
-
-
 get_img_srcs = (F()
     >> get_html  # :: ElementTree
     >> img_tags  # :: List[Element]
@@ -140,25 +163,18 @@ fetch_paths = (F()
 )
 
 def sync_page_images(url):
-    """Functional Python.
-    Typedefs:
-        PathParts :: (str, str, str, Optional(str))
-        Path :: str
-    """
-    # pipeline = (F()
-    #     >> get_html  # :: ElementTree
-    #     >> img_tags  # :: List[Element]
-    #     >> F(map, get_src)  # :: List[Optional(Path)]
-    #     >> F(filter, _ != None)  # :: List[Path]
-    #     >> F(filter, startswith("/media"))  # :: List[Path]
-    #     >> F(map, split_path_parts)  # :: List[Optional(PathParts)]
-    #     >> F(filter, _ != None)  # :: List[PathParts]
-    #     >> F(map, _[1])  # :: List[Path]
-    #     >> unique  # :: List[Path]
-    # )
+    """Functional Python.    """
 
-    # To debug output:
-    # body_paths = fetch_paths(url); print(body_paths)
+
+    print("tags = (F(get_html)>>img_tags)(url); tag = tags[0];")
+    print()
+    print("url:", type(url), url)
+    print()
+    import ipdb
+    ipdb.set_trace()
+    print()
+    
+
     executor = fetch_paths >> F(map, sync_media)
     return executor(url)
 
