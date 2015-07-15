@@ -78,9 +78,22 @@ def cache(func):
         return func._cache[value]
     return wrapper
 
+
+def getitem(key, default=None):
+    """Operator. Return a function retreiving a key, with optional default."""
+    def getter_wrapper(obj):
+        if hasattr(obj, 'get'):
+            return obj.get(key, default)  # defer to get method, for Mappings
+        try:
+            return obj[key]
+        except (KeyError, IndexError):
+            return default
+    return getter_wrapper
+
+
 def get(key, default=None):
     def wrapper(obj):
-        return obj.get(key, default=default)
+        return obj.get(key, default)
     return wrapper
 
 # get = lambda key, default=None: lambda obj: obj.get(key, default=default)

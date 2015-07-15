@@ -1,4 +1,5 @@
-"""
+"""Download all media resources from a url, using sync-media.py.
+
 Typedefs:
     PathParts :: (str, str, str)
     Path :: str
@@ -14,6 +15,7 @@ from sync_media_function import sync_media
 from metafuncs import branch, combine, maybe, tryit, get
 
 # Support functions
+is_not_none = lambda obj: obj is not None
 unique = lambda sequence: list(set(sequence))
 get_html = html.parse  # :: str -> ElementTree
 img_tags = cssselect.CSSSelector('img')  # :: ElementTree -> List[Element]
@@ -33,20 +35,23 @@ get_img_srcs = (F()  # :: Location
     >> F(map, get_src)  # List[Optional[Path]]
 )
 # Retreive URL-paths from CSS 'background-image:' properties
-get_css_srcs = (F()  # :: Location
+get_css_srcs = (
+    F()  # :: Location
     >> read_page  # :: str
     >> BACKGROUND_IMAGE_REGEX.findall  # :: List[str]
 )
 # Format relative paths for sync-media
-parse_srcs = (F()  # :: List[Optional[Path]]
-    >> F(filter, _ != None)  # :: List[Path]
+parse_srcs = (
+    F()  # :: List[Optional[Path]]
+    >> F(filter, is_not_none)  # :: List[Path]
     >> F(filter, lambda phrase: str.startswith(phrase, '/media'))
     >> F(map, tryit(split_path_parts))  # :: List[Optional(PathParts)]
-    >> F(filter, _ != None)  # :: List[PathParts]
+    >> F(filter, is_not_none)  # :: List[PathParts]
     >> F(map, _[1])  # :: List[Path]
 )
 # Combine get_img_srcs with get_css_srcs, and parse resultant paths
-fetch_paths = (F()  # :: Location
+fetch_paths = (
+    F()  # :: Location
     >> branch(get_img_srcs, get_css_srcs)  # :: (List[Path], List[Path])
     >> combine  # :: List[Path]
     >> unique  # :: List[Path]
@@ -56,17 +61,6 @@ executor = fetch_paths >> F(map, sync_media)  # Location -> Side Effects! impure
 
 def main(location):
     """ Pull down all images referenced in a given HTML URL or file."""
-
-    tags = (F() >> get_html >> img_tags)(location)
-    tag = tags[1]
-    print()
-    print("tag:", type(tag), tag)
-    print()
-    import ipdb
-    ipdb.set_trace()
-    print()
-    
-
     return executor(location)
 
 if __name__ == "__main__":
