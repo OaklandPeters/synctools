@@ -23,12 +23,19 @@ EXAMPLE_LIVE_URL = ('http://theatlantic.com/international/archive/'
 
 
 class TestMetafuncs(unittest.TestCase):
+
+    """Unit-tests for some of the meta-functions.
+
+    @todo: Move these to a seperate test file, so they can be refactored out with the metafuncs.
+    """
+
     def test_getter(self):
+        """Test get/getitem operators."""
         mydict = {'data-src': "MyPath", 'data-srcset': "pathset"}
         mydict_2 = {'data-srcset': "pathset"}
         maybe = metafuncs.maybe
         get = metafuncs.get
-        getter = metafuncs.getter
+        getter = metafuncs.getitem
 
         get_src = maybe(get('src'),     # normal
                     maybe(get('data-src'),  # photo pages
@@ -79,9 +86,23 @@ class TestReadHtmlMinimal(unittest.TestCase):
         for line in expected:
             self.assertTrue(line in results)
 
+    def test_full(self):
+        """Test main function / command-line interface function."""
+
+        import pdb
+        pdb.set_trace()
+        print()
+
+        read_html_minimal.main(EXAMPLE_LIVE_URL)
+        self.library.main(EXAMPLE_LIVE_URL)
+
 
 class TestReadHtml(TestReadHtmlMinimal):
 
     """Test the standard-Python version of read_html."""
 
     library = read_html
+
+    # def test_full(self):
+    #     """Dummy stub of testing the commandline interface."""
+    #     pass

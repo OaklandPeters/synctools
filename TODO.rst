@@ -10,6 +10,15 @@ Project Refactoring
 
 Medium-Term
 -------------
+- Revise Monadic, along with tests.
+    - Remove use of Container -> functor/applicative/monad do not necessarily have a getValue
+    - Use abcs: abstract functions for Functor, Applicative, Monad
+    - Find better name than fmap/amap. Maybe see if I can pin these with bind/lift/unit/transform
+        - Maybe: lift - type constructor, unit - wraps value into the functor/monad,
+        - Maybe: bind - chains operations while returning same functor/monad
+        - Recall monadic laws:   unit(x) >> f == f(x), m >> unit == m,
+            - Associative: (m >> f) >> g == m >> (f >> g)
 - See how hard it would be to get my custom Monad.Composable working
+    - Test manually as replacement for F()
 - Extra monads which would make sense: Stream (Reader + Writer, rpimariy for filtering
     - Partials (improvement of Currying)

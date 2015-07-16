@@ -3,11 +3,23 @@
 Functor/Applicative/Monad class hierarchy from pymonad by jason_delaat
 
 """
-import pymonad
+#import pymonad
 
+from . import monadic
 from ..metafuncs import compose, _compose
 
-class Composable(pymonad.Monad):
+def identity(x):
+    return x
+
+
+class Identity(monadic.Monad):
+    def __init__(self, value):
+        self.value = value
+    def bind(self, func):
+        return func(this.value)
+
+
+class Composable(monadic.Monad):
     """
     Simple Monad for function composition.
     Inspired by kachayev's fn.py's class F
@@ -22,7 +34,7 @@ class Composable(pymonad.Monad):
         # self._callback = func
         # return self
 
-    def __init__(self, callback):
+    def __init__(self, callback=identity):
         super(Composable, self).__init__(callback)
         self._callback = callback
 

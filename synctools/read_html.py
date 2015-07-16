@@ -1,4 +1,5 @@
-"""
+"""Pull down all media resources for a web-page, using sync-media.py.
+
 @todo: Validation for non-existing urls (and must begin with http://) if not os.path.exists
 @todo: Add the new css-code to the `classic` function
 @todo: Refactor the `classic` functions into their own file
@@ -27,26 +28,24 @@ import itertools
 from lxml import html
 from lxml.cssselect import CSSSelector
 
-from fn import F, _
+from fn import F
+
+from .sync_media_function import sync_media
+from .metafuncs import branch
 
 
 def get_html(location):
-    """ :: str -> ElementTree
-    location can be a file path or a url
-    """
+    """Read and parse location (file path or url) into ElementTree."""
     return html.parse(location)
 
+
 def img_tags(tree):
-    """ :: ElementTree -> List[Element] """
+    """Retreive image tags from ElementTree."""
     return CSSSelector('img')(tree)
 
 
-
 def get_src(img_tag):
-    """ Element -> str """
-    # maybe(_.call('get', 'src'),
-    #   maybe(_.call('get', 'data-src'),
-    #       maybe(_.call('get', 'data-srcset'))))
+    """Get contents of src attribute from Element."""
     src = img_tag.get('src')
     if src:
         return src
@@ -62,97 +61,62 @@ def get_src(img_tag):
                 return None
 
 
-# def get(key, default=None):
-#     def wrap_get(obj):
-#         return obj.get(key, default=None)
-#     return wrap_get
-
-get = lambda key, default=None: _.call('get', key, default=default)
-
-def maybe(func, _else=None):
-    def wrap_maybe(obj):
-        result = func(obj)
-        if result != None:
-            return result
-        else:
-            if callable(_else):
-                return _else(obj)
-            else:
-                return _else
-    return wrap_maybe
-
-try_get_src = maybe(get('src'),
-                maybe(get('data-src'),
-                    maybe(get('data-srcset'))))
-
-
 def startswith(word):
-    """ str -> (str -> bool) """
+    """Operator. Returns a predicate function which checks if strings bear a certain begining."""
     def wrapper(string):
         return str.startswith(string, word)
     return wrapper
 
+
 PATH_SPLIT_REGEX = re.compile(r'^(/media)/(.*)/(.*?\..*?)$')
+
+
 def split_path_parts(src):
-    """ str -> Optional[(str, str, str)] """
+    """Split a url path into front (/media), directores, and file-name+query."""
     matchobj = PATH_SPLIT_REGEX.match(src)
     if matchobj:
         return matchobj.groups()  # (front, body_path, file_name_and_query)
     else:
         return None
 
-def ensure_end(end):
-    """ str -> (str -> str) """
-    def wrapper(word):
-        if word.endswith(end):
-            return word
-        else:
-            return word + end
-    return wrapper
 
 def unique(sequence):
+    """Find all unique elements of a sequence."""
     return list(set(sequence))
 
 BACKGROUND_IMAGE_REGEX = re.compile(r'background-image: url\((.*?\))')
 
+
 def read_page(url):
-    """ str -> str """
+    """Read URL into a string."""
     return urllib2.urlopen(url).read()
 
-def branch(*callables):
-    """ Decorator. Return a function which invokes a series of
-    functions with the same arguments.
-    :: [Any -> Any] -> (Any -> [Any])
-    Haskellish :: [(* -> *)] -> (* -> [*])
-    """
-    def wrapper(*args, **kwargs):
-        return [func(*args, **kwargs) for func in callables]
-    return wrapper
 
 def combine(iterables):
-    """ Chain together a series of iterables
-    :: Iterable[Iterable[Any]] -> List[Any] """
+    """Chain together a series of iterables."""
     return list(itertools.chain(*iterables))
 
 
-
-get_img_srcs = (F()
+get_img_srcs = (
+    F()
     >> get_html  # :: ElementTree
     >> img_tags  # :: List[Element]
     >> F(map, get_src)  # List[Optional[Path]]
 )
 
-get_css_srcs = (F()
+get_css_srcs = (
+    F()
     >> read_page  # :: str
-    >> BACKGROUND_IMAGE_REGEX.findall  # :: List[str]    
+    >> BACKGROUND_IMAGE_REGEX.findall  # :: List[str]
 )
 
-parse_srcs = (F()
-    >> F(filter, _ != None)  # :: List[Path]
+parse_srcs = (
+    F()
+    >> F(filter, lambda obj: obj is not None)  # :: List[Path]
     >> F(filter, startswith("/media"))  # :: List[Path]
     >> F(map, split_path_parts)  # :: List[Optional(PathParts)]
-    >> F(filter, _ != None)  # :: List[PathParts]
-    >> F(map, _[1])  # :: List[Path]
+    >> F(filter, lambda obj: obj is not None)  # :: List[PathParts]
+    >> F(map, lambda obj: obj[1])  # :: List[Path]
 )
 
 fetch_paths = (F()
@@ -163,43 +127,34 @@ fetch_paths = (F()
 )
 
 def sync_page_images(url):
-    """Functional Python.    """
-
-
-    print("tags = (F(get_html)>>img_tags)(url); tag = tags[0];")
-    print()
-    print("url:", type(url), url)
-    print()
-    import ipdb
-    ipdb.set_trace()
-    print()
-    
-
-    executor = fetch_paths >> F(map, sync_media)
+    """Functional Python version."""
+    executor = (fetch_paths >> F(map, sync_media))
     return executor(url)
 
 
 def sync_page_images_classic(url):
     """Equivalent classical Python.
-    ... because some people will feel uncomfortable using the pipeline version.
+
+    ...because some people will feel uncomfortable using the pipeline version.
     """
-    tree = get_html(example_file)
+    tree = get_html(url)
     imgs = img_tags(tree)
     src_strings = map(get_src, imgs)
-    nonempty_strings = filter(_ != None, src_strings)
+    nonempty_strings = filter(lambda obj: obj is not None, src_strings)
     media_strings = filter(startswith("/media"), nonempty_strings)
     src_path_parts = map(split_path_parts, media_strings)
-    nonempty_path_parts = filter(_ != None, src_path_parts)
-    body_paths = map(_[1], nonempty_path_parts)
+    nonempty_path_parts = filter(lambda obj: obj is not None, src_path_parts)
+    body_paths = map(lambda obj: obj[1], nonempty_path_parts)
     unique_paths = unique(body_paths)
     return map(sync_media, unique_paths)
 
 
-
-def main():
+def main(location):
     """Run example code. In future, should take commandline arguments."""
-    return sync_page_images(example_url_1)
-    
+
+    return sync_page_images_classic(location)
+
 
 if __name__ == "__main__":
-    main()
+    import sys
+    main(sys.argv[1])
