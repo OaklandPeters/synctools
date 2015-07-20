@@ -9,13 +9,13 @@ import re
 import urllib2
 
 from lxml import html, cssselect
-from fn import F
 
 from sync_media_function import sync_media
-from metafuncs import branch, combine, maybe, tryit, getitem
+from metafuncs import branch, combine, maybe, tryit, getitem, cache
 
-# from pymonad.List import List as ListM
-from monad.composable import Composable
+from monad.composable import Composable, Partial
+
+F = Partial
 
 # Support functions
 is_not_none = lambda obj: obj is not None
@@ -28,34 +28,40 @@ get_src = maybe(getitem('src'),     # normal
 BACKGROUND_IMAGE_REGEX = re.compile(r'background-image: url\((.*?\))')
 read_page = lambda url: urllib2.urlopen(url).read()
 PATH_SPLIT_REGEX = re.compile(r'^(/media)/(.*)/(.*?\..*?)$')
+# PATH_SPLIT_REGEX = re.compile(r'/media/(.*)/(')
 split_path_parts = lambda src: PATH_SPLIT_REGEX.match(src).groups()  # :: str -> PathPats
+MEDIA_PATH_REGEX = re.compile(r'/media/')
+is_media_path = lambda path: MEDIA_PATH_REGEX.search(path) is not None
 
 # Composite work-horse functions
 # Retreive src-like properties from <img> tags
 get_img_srcs = (
-    F()  # :: Location
+    Composable()  # :: Location
     >> get_html  # :: ElementTree
     >> img_tags  # :: List[Element]
     >> F(map, get_src)  # List[Optional[Path]]
 )
 # Retreive URL-paths from CSS 'background-image:' properties
 get_css_srcs = (
-    F()  # :: Location
+    Composable()  # :: Location
     >> read_page  # :: str
     >> BACKGROUND_IMAGE_REGEX.findall  # :: List[str]
 )
 # Format relative paths for sync-media
 parse_srcs = (
-    F()  # :: List[Optional[Path]]
+    Composable()  # :: List[Optional[Path]]
     >> F(filter, is_not_none)  # :: List[Path]
-    >> F(filter, lambda phrase: str.startswith(phrase, '/media'))
+    # >> F(filter, lambda phrase: str.startswith(phrase, '/media'))
+    >> F(filter, is_media_path)
     >> F(map, tryit(split_path_parts))  # :: List[Optional(PathParts)]
+    # >> mapper(tryit(split_path_parts))
     >> F(filter, is_not_none)  # :: List[PathParts]
     >> F(map, getitem(1))  # :: List[Path]
+    # >> mapper(getitem(1))
 )
 # Combine get_img_srcs with get_css_srcs, and parse resultant paths
 fetch_paths = (
-    F()  # :: Location
+    Composable()  # :: Location
     >> branch(get_img_srcs, get_css_srcs)  # :: (List[Path], List[Path])
     >> combine  # :: List[Path]
     >> unique  # :: List[Path]
@@ -71,9 +77,9 @@ def main(location):
     """ Pull down all images referenced in a given HTML URL or file."""
 
     grab = (
-        F() >> cache(branch(get_img_srcs, get_css_srcs)) >> combine >> unique
+        Composable() >> cache(branch(get_img_srcs, get_css_srcs)) >> combine >> unique
         >> F(filter, is_not_none)
-        >> F(filter, lambda phrase: str.startswith(phrase, '/media'))
+        >> F(filter, is_media_path)
     )
     print(grab(location))  # returns nothing. Why?
     print()

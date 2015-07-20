@@ -4,6 +4,7 @@ Functor/Applicative/Monad class hierarchy from pymonad by jason_delaat
 
 """
 #import pymonad
+import functools
 
 from . import monadic
 from ..metafuncs import compose, _compose
@@ -34,7 +35,10 @@ class Composable(monadic.Monad):
         # self._callback = func
         # return self
 
-    def __init__(self, callback=identity):
+    def __init__(self, callback=identity, *args, **kwargs):
+        if len(args) > 0 or len(kwargs) > 0:
+            callback = functools.partial(callback, *args, **kwargs)
+
         super(Composable, self).__init__(callback)
         self._callback = callback
 
@@ -43,3 +47,11 @@ class Composable(monadic.Monad):
 
     def __call__(self, *args, **kwargs):
         return self._callback(*args, **kwargs)
+
+
+class Partial(Composable):
+    def __init__(self, callback=identity, *args, **kwargs):
+        if len(args) > 0 or len(kwargs) > 0:
+            callback = functools.partial(callback, *args, **kwargs)
+
+        super(Partial, self).__init__(callback)

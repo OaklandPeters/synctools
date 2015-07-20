@@ -101,3 +101,22 @@ def get(key, default=None):
     def wrapper(obj):
         return obj.get(key, default)
     return wrapper
+
+
+
+#
+#   Unused metafunctions
+#
+# These should be abstracted out
+def mapper(func):
+    """Decorator. Return a function mapping function over iterables."""
+    def wrap_map(*args, **kwargs):
+        return map(func, *args, **kwargs)
+    return wrap_map
+
+def filterer(func):
+    """Decorator."""
+    def wrap_filter(*args, **kwargs):
+        return filter(func, *args, **kwargs)
+    return wrap_filter
+

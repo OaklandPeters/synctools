@@ -18,6 +18,9 @@ Medium-Term
         - Maybe: bind - chains operations while returning same functor/monad
         - Recall monadic laws:   unit(x) >> f == f(x), m >> unit == m,
             - Associative: (m >> f) >> g == m >> (f >> g)
+    - Add more informative __repr__ to Composable. "<Composable function {fname} at {fid}>"
+        - Idea: have it print nested function names (if they exist and are not <lambda>)
+            ... basically keep recursing if _callback isinstance Composable
 - See how hard it would be to get my custom Monad.Composable working
     - Test manually as replacement for F()
 - Extra monads which would make sense: Stream (Reader + Writer, rpimariy for filtering
