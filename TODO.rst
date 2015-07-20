@@ -1,6 +1,8 @@
 
 Project Refactoring
 ---------------------
+- BUG: PATH_SPLIT_REGEX not working for live urls
+    - Solution: make it work for local paths AND live paths
 - README.rst, with examples
 - Remove unused test/data/ files.
 - Make read_html.py mimic the structure of read_html_minimal.py
