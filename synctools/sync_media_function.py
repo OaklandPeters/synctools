@@ -33,20 +33,20 @@ Updating a few things:
 """
 import os, sys
 
-ATLCMS = os.path.realpath(os.path.join(os.path.dirname(__file__), "..", "Atlantic-CMS"))
-LOCAL_MEDIA = os.path.join(ATLCMS, "assets/media")
+#ATLCMS = os.path.realpath(os.path.join(os.path.dirname(__file__), "..", "Atlantic-CMS"))
+ATLCMS_PATH = "/Users/opeters/workspace/Atlantic-CMS"
+LOCAL_MEDIA_PATH = os.path.join(ATLCMS_PATH, "assets", "media")
 
 def sync_media(subfolder):
     """
-    """    
-
+    """
     if ".." in subfolder:
         raise ValueError("Subfolder should not contain '..'")
     elif subfolder[0] == os.path.sep:
         raise ValueError("Subfolder should not be an absolute path (~begins with '/').")
 
     remote_path = os.path.join("/www/cmsprod/shared/assets/media/", subfolder)
-    local_path = os.path.realpath(os.path.join(LOCAL_MEDIA, subfolder, '..'))
+    local_path = os.path.realpath(os.path.join(LOCAL_MEDIA_PATH, subfolder, '..'))
 
     def partial_paths(base, folder):
         parts = [part for part in folder.split(os.path.sep) if part]
@@ -54,7 +54,7 @@ def sync_media(subfolder):
             yield os.path.join(base, *parts[0:(i+1)])
 
     # Create any parent directories that need to exist
-    for path in partial_paths(LOCAL_MEDIA, subfolder):
+    for path in partial_paths(LOCAL_MEDIA_PATH, subfolder):
         if not os.path.exists(path):
             os.makedirs(path)
 
