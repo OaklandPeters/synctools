@@ -115,7 +115,7 @@ def mapper(func):
     return wrap_map
 
 def filterer(func):
-    """Decorator."""
+    """Decorator. Return a function which applies the function as a filter."""
     def wrap_filter(*args, **kwargs):
         return filter(func, *args, **kwargs)
     return wrap_filter
