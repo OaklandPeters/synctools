@@ -60,13 +60,13 @@ parse_srcs = (
     # >> mapper(getitem(1))
 )
 # Combine get_img_srcs with get_css_srcs, and parse resultant paths
-fetch_paths = (
+fetch_full_paths = (
     Composable()  # :: Location
-    >> branch(get_img_srcs, get_css_srcs)  # :: (List[Path], List[Path])
+    >> cache(branch(get_img_srcs, get_css_srcs))  # :: (List[Path], List[Path])
     >> combine  # :: List[Path]
     >> unique  # :: List[Path]
-    >> parse_srcs  # :: List[Path]
 )
+fetch_paths = fetch_full_paths >> parse_srcs  # :: List[Path]
 executor = fetch_paths >> F(map, sync_media)  # Location -> Side Effects! impure! impure!
 
 
