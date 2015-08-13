@@ -1,22 +1,14 @@
-"""Download all media resources from a url, using sync-media.py.
-
-Typedefs:
-    PathParts :: (str, str, str)
-    Path :: str
-    Location :: str  - URL or local file path
+"""
+One-file version, few dependencies
 """
 import re
 import urllib2
+from functools import partial
 
 from lxml import html, cssselect
 
 from sync_media_function import sync_media
 from metafuncs import branch, combine, maybe, tryit, getitem, cache, Chainable
-
-# Composable = Chainable
-from monad.composable import Composable
-import functools
-F = functools.partial
 
 
 # Support functions
@@ -38,58 +30,38 @@ is_media_path = lambda path: MEDIA_PATH_REGEX.search(path) is not None
 # Composite work-horse functions
 # Retreive src-like properties from <img> tags
 get_img_srcs = (
-    Composable()  # :: Location
-    >> cache(get_html)  # :: ElementTree
+    Chainable()  # :: Location
+    >> get_html  # :: ElementTree
     >> img_tags  # :: List[Element]
-    >> F(map, get_src)  # List[Optional[Path]]
+    >> partial(map, get_src)  # List[Optional[Path]]
 )
 # Retreive URL-paths from CSS 'background-image:' properties
 get_css_srcs = (
-    Composable()  # :: Location
-    >> cache(read_page)  # :: str
+    Chainable()  # :: Location
+    >> read_page  # :: str
     >> BACKGROUND_IMAGE_REGEX.findall  # :: List[str]
 )
 # Format relative paths for sync-media
 parse_srcs = (
-    Composable()  # :: List[Optional[Path]]
-    >> F(filter, is_not_none)  # :: List[Path]
-    # >> F(filter, lambda phrase: str.startswith(phrase, '/media'))
-    >> F(filter, is_media_path)
-    >> F(map, tryit(split_path_parts))  # :: List[Optional(PathParts)]
-    # >> mapper(tryit(split_path_parts))
-    >> F(filter, is_not_none)  # :: List[PathParts]
-    >> F(map, getitem(1))  # :: List[Path]
-    # >> mapper(getitem(1))
+    Chainable()  # :: List[Optional[Path]]
+    >> partial(filter, is_not_none)  # :: List[Path]
+    >> partial(filter, is_media_path)
+    >> partial(map, tryit(split_path_parts))  # :: List[Optional(PathParts)]
+    >> partial(filter, is_not_none)  # :: List[PathParts]
+    >> partial(map, getitem(1))  # :: List[Path]
 )
 # Combine get_img_srcs with get_css_srcs, and parse resultant paths
 fetch_full_paths = (
-    Composable()  # :: Location
-    # >> cache(branch(get_img_srcs, get_css_srcs))  # :: (List[Path], List[Path])
-    >> branch(get_img_srcs, get_css_srcs)  # :: (List[Path], List[Path])
+    Chainable()  # :: Location
+    >> cache(branch(get_img_srcs, get_css_srcs))  # :: (List[Path], List[Path])
     >> combine  # :: List[Path]
     >> unique  # :: List[Path]
 )
 fetch_paths = fetch_full_paths >> parse_srcs  # :: List[Path]
-executor = fetch_paths >> F(map, sync_media)  # Location -> Side Effects! impure! impure!
-
-
-
-
+executor = fetch_paths >> partial(map, sync_media)  # Location -> Side Effects! impure! impure!
 
 def main(location):
     """ Pull down all images referenced in a given HTML URL or file."""
-
-    grab = (
-        Composable() >> cache(branch(get_img_srcs, get_css_srcs)) >> combine >> unique
-        >> F(filter, is_not_none)
-        >> F(filter, is_media_path)
-    )
-    print(grab(location))  # returns nothing. Why?
-    print()
-    import pdb
-    pdb.set_trace()
-    print()
-
     return executor(location)
 
 if __name__ == "__main__":

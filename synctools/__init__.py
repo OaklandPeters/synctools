@@ -1,2 +1,3 @@
 import read_html_minimal
 import read_html
+import read_html_simple
