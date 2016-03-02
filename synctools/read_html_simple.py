@@ -8,7 +8,7 @@ from functools import partial
 from lxml import html, cssselect
 
 from sync_media_function import sync_media
-from metafuncs import branch, combine, maybe, tryit, getitem, cache, Chainable
+from metafuncs import branch, combine, maybe, tryit, getitem, cache, Chainable, Pipe
 
 
 # Support functions
@@ -84,6 +84,23 @@ executor = fetch_paths >> partial(map, sync_media)  # Location -> Side Effects! 
 
 def main(location):
     """ Pull down all images referenced in a given HTML URL or file."""
+
+    _p_get = (
+        Pipe()  # :: Location
+        >> get_html  # :: ElementTree
+        >> img_tags  # :: List[Element]
+        >> partial(map, get_src)  # List[Optional[Path]]
+    )
+
+
+    print()
+    print("get_img_srcs(location):", type(get_img_srcs(location)), get_img_srcs(location))
+    print()
+    import ipdb
+    ipdb.set_trace()
+    print()
+    
+
     return executor(location)
 
 if __name__ == "__main__":

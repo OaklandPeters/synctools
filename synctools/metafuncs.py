@@ -135,7 +135,13 @@ class Chainable(object):
 
 
 class Pipe(object):
-    """Future... 
+    """
+    Bugs:
+    * Doesn't work, but it should - should dispatch when 2nd argument is Pipe:
+        Pipe(function) >> Pipe(argument) << function2
+        == function2(function(argument))
+
+    Future... 
     * if/elif could be simplified by PipeElm/PipeMorph
     """
     def __init__(self, value=_identity):
@@ -164,12 +170,17 @@ class Pipe(object):
         Pipe(argument) >> function == Pipe(function(argument))
         Pipe(argument) >> argument -> TypeError
         """
+        # SPECIAL CASE:
+        # ... I think this ~ join
+        if isinstance(arg, Pipe):
+            return self >> arg._value
+
         if callable(self._value) and callable(arg):
             return self.bind(arg)
         elif callable(self._value) and not callable(arg):
             return self.map(arg)
         elif not callable(self._value) and callable(arg):
-            self.apply(arg)
+            return self.apply(arg)
         elif not callable(self._value) and not callable(arg):
             raise TypeError("Operator 'Pipe(...) >> X', X must be callable")
         else:
@@ -182,6 +193,11 @@ class Pipe(object):
         Pipe(argument) << function == function(argument)
         Pipe(argument) << argument -> TypeError
         """
+        # SPECIAL CASE:
+        # ... I think this ~ join
+        if isinstance(arg, Pipe):
+            return self << arg._value
+
         if callable(self._value) and callable(arg):
             return _compose(arg, self._value)
         elif callable(self._value) and not callable(arg):
