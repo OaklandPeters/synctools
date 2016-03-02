@@ -73,23 +73,8 @@ fetch_paths = fetch_full_paths >> parse_srcs  # :: List[Path]
 executor = fetch_paths >> F(map, sync_media)  # Location -> Side Effects! impure! impure!
 
 
-
-
-
 def main(location):
     """ Pull down all images referenced in a given HTML URL or file."""
-
-    grab = (
-        Composable() >> cache(branch(get_img_srcs, get_css_srcs)) >> combine >> unique
-        >> F(filter, is_not_none)
-        >> F(filter, is_media_path)
-    )
-    print(grab(location))  # returns nothing. Why?
-    print()
-    import pdb
-    pdb.set_trace()
-    print()
-
     return executor(location)
 
 if __name__ == "__main__":
