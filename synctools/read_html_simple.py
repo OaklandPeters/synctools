@@ -26,6 +26,19 @@ PATH_SPLIT_REGEX = re.compile(r'^(/media)/(.*)/(.*?\..*?)$')
 split_path_parts = lambda src: PATH_SPLIT_REGEX.match(src).groups()  # :: str -> PathPats
 MEDIA_PATH_REGEX = re.compile(r'/media/')
 is_media_path = lambda path: MEDIA_PATH_REGEX.search(path) is not None
+fixup_cdn = lambda url: "http:"+url if url.startswith('//cdn') else url
+
+
+def crop(prefix):
+    def wrapped(word):
+        if word.startswith(prefix):
+            return word[len(prefix):]
+    return wrapped
+
+remove_prefix = maybe(crop('http://opeterml1297110.njgroup.com:7000'),
+                      maybe(crop('http://cdn.theatlantic.com/assets/'),
+                            maybe(crop('https://cdn.theatlantic.com/assets/'),
+                                  lambda word: word)))
 
 # Composite work-horse functions
 # Retreive src-like properties from <img> tags
@@ -50,6 +63,10 @@ parse_srcs = (
     >> partial(filter, is_not_none)  # :: List[PathParts]
     >> partial(map, getitem(1))  # :: List[Path]
 )
+cleanup_paths = (
+    Chainable()  # :: List[Path]
+    >> partial(map, fixup_cdn)
+)
 # Combine get_img_srcs with get_css_srcs, and parse resultant paths
 fetch_full_paths = (
     Chainable()  # :: Location
@@ -57,8 +74,13 @@ fetch_full_paths = (
     >> combine  # :: List[Path]
     >> unique  # :: List[Path]
 )
-fetch_paths = fetch_full_paths >> parse_srcs  # :: List[Path]
+fetch_paths = (
+    fetch_full_paths
+    >> partial(map, remove_prefix)  # List[Path]
+    >> parse_srcs  # :: List[Path]
+)
 executor = fetch_paths >> partial(map, sync_media)  # Location -> Side Effects! impure! impure!
+
 
 def main(location):
     """ Pull down all images referenced in a given HTML URL or file."""
