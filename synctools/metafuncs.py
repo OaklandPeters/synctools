@@ -7,6 +7,8 @@ import functools
 
 _identity = lambda x: x
 _compose = lambda f, g: lambda *args, **kwargs: f(g(*args, **kwargs))
+_apply = lambda x, f: f(x)
+_call = lambda f, x: f(x)
 
 
 def compose(*callables):
@@ -131,6 +133,65 @@ class Chainable(object):
     def __call__(self, *args, **kwargs):
         return self._callback(*args, **kwargs)
 
+
+class Pipe(object):
+    """Future... 
+    * if/elif could be simplified by PipeElm/PipeMorph
+    """
+    def __init__(self, value=_identity):
+        self._value = value
+
+    def bind(self, func):
+        return Pipe(_compose(func, self._value))
+
+    def apply(self, func):
+        return Pipe(_apply(self._value, func))
+
+    def map(self, arg):
+        return Pipe(_call(self._value, arg))
+
+    def __call__(self, *args, **kwargs):
+        """
+        Pipe(arg) == Pipe().map(arg) << identity
+        Pipe(function)(argument)
+        """
+        return self._value(*args, **kwargs)
+
+    def __rshift__(self, arg):
+        """Chains inside the category.
+        Pipe(function) >> function == Pipe(function)
+        Pipe(function) >> argument == Pipe(function(argument))
+        Pipe(argument) >> function == Pipe(function(argument))
+        Pipe(argument) >> argument -> TypeError
+        """
+        if callable(self._value) and callable(arg):
+            return self.bind(arg)
+        elif callable(self._value) and not callable(arg):
+            return self.map(arg)
+        elif not callable(self._value) and callable(arg):
+            self.apply(arg)
+        elif not callable(self._value) and not callable(arg):
+            raise TypeError("Operator 'Pipe(...) >> X', X must be callable")
+        else:
+            raise TypeError("Case fall-through error. This should never occur")
+
+    def __lshift__(self, arg):
+        """Exit the category.
+        Pipe(function) << argument == function(argument)
+        Pipe(function) << function == _compose(function, function)
+        Pipe(argument) << function == function(argument)
+        Pipe(argument) << argument -> TypeError
+        """
+        if callable(self._value) and callable(arg):
+            return _compose(arg, self._value)
+        elif callable(self._value) and not callable(arg):
+            return self(arg)
+        elif not callable(self._value) and callable(arg):
+            return arg(self._value)
+        elif not callable(self._value) and not callable(arg):
+            raise TypeError("'Pipe() >> argument << argument' is invalid")
+        else:
+            raise TypeError("Case fall-through error. This should never occur")
 
 
 #
