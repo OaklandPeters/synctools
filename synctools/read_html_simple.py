@@ -43,20 +43,20 @@ remove_prefix = maybe(crop('http://opeterml1297110.njgroup.com:7000'),
 # Composite work-horse functions
 # Retreive src-like properties from <img> tags
 get_img_srcs = (
-    Chainable()  # :: Location
+    Pipe()  # :: Location
     >> get_html  # :: ElementTree
     >> img_tags  # :: List[Element]
     >> partial(map, get_src)  # List[Optional[Path]]
 )
 # Retreive URL-paths from CSS 'background-image:' properties
 get_css_srcs = (
-    Chainable()  # :: Location
+    Pipe()  # :: Location
     >> read_page  # :: str
     >> BACKGROUND_IMAGE_REGEX.findall  # :: List[str]
 )
 # Format relative paths for sync-media
 parse_srcs = (
-    Chainable()  # :: List[Optional[Path]]
+    Pipe()  # :: List[Optional[Path]]
     >> partial(filter, is_not_none)  # :: List[Path]
     >> partial(filter, is_media_path)
     >> partial(map, tryit(split_path_parts))  # :: List[Optional(PathParts)]
@@ -64,12 +64,12 @@ parse_srcs = (
     >> partial(map, getitem(1))  # :: List[Path]
 )
 cleanup_paths = (
-    Chainable()  # :: List[Path]
+    Pipe()  # :: List[Path]
     >> partial(map, fixup_cdn)
 )
 # Combine get_img_srcs with get_css_srcs, and parse resultant paths
 fetch_full_paths = (
-    Chainable()  # :: Location
+    Pipe()  # :: Location
     >> cache(branch(get_img_srcs, get_css_srcs))  # :: (List[Path], List[Path])
     >> combine  # :: List[Path]
     >> unique  # :: List[Path]
@@ -84,23 +84,6 @@ executor = fetch_paths >> partial(map, sync_media)  # Location -> Side Effects! 
 
 def main(location):
     """ Pull down all images referenced in a given HTML URL or file."""
-
-    _p_get = (
-        Pipe()  # :: Location
-        >> get_html  # :: ElementTree
-        >> img_tags  # :: List[Element]
-        >> partial(map, get_src)  # List[Optional[Path]]
-    )
-
-
-    print()
-    print("get_img_srcs(location):", type(get_img_srcs(location)), get_img_srcs(location))
-    print()
-    import ipdb
-    ipdb.set_trace()
-    print()
-    
-
     return executor(location)
 
 if __name__ == "__main__":
