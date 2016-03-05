@@ -71,9 +71,30 @@ class Monadic(MonadInterface):
             return self >> cls(arg)
 
         if callable(self.value) and callable(arg.value):
-            return self.bind(arg)
+            #return self.bind(arg.value)
+            return self.compose(arg)
         elif callable(self.value) and not callable(arg.value):
-            return self.map(arg)
+            #return self.map(arg.value)
+            return self.call(arg)
+        elif not callable(self.value) and callable(arg.value):
+            return self.apply(arg)
+        elif not callable(self.value) and not callable(arg.value):
+            raise TypeError("Operator 'Pipe(...) >> X', X must be callable")
+        else:
+            raise TypeError("Case fall-through error. This should never occur")
+
+
+    @pedanticmethod
+    def rshift(cls, self, arg):
+        if not isinstance(arg, cls):
+            return self.rshift(cls(arg))
+
+        if callable(self.value) and callable(arg.value):
+            #return self.bind(arg.value)
+            return self.compose(arg)
+        elif callable(self.value) and not callable(arg.value):
+            #return self.map(arg.value)
+            return self.call(arg)
         elif not callable(self.value) and callable(arg.value):
             return self.apply(arg)
         elif not callable(self.value) and not callable(arg.value):
@@ -105,17 +126,30 @@ class Monadic(MonadInterface):
 
     @pedanticmethod
     def __lshift__(cls, self, arg):
-        # SPECIAL CASE:
-        # ... I think this ~ join
-        if not isinstance(arg, cls):
-            return self << cls(arg)
+        """
+        This really needs to be written in terms of something like foldable and traversable
+        """
+        try:
+            # SPECIAL CASE:
+            # ... I think this ~ join
+            if not isinstance(arg, cls):
+                return self << cls(arg)
+        except AttributeError as exc:
+
+            print()
+            print("exc:", type(exc), exc)
+            print()
+            import ipdb
+            ipdb.set_trace()
+            print()
+            
 
         if callable(self.value) and callable(arg.value):
-            return Pysk.compose(arg, self.value)
+            return Pysk.compose(arg.value, self.value)
         elif callable(self.value) and not callable(arg.value):
-            return self.value(arg)
+            return self.value(arg.value)
         elif not callable(self.value) and callable(arg.value):
-            return arg(self.value)
+            return arg.value(self.value)
         elif not callable(self.value) and not callable(arg.value):
             raise TypeError("'Pipe() >> argument << argument' is invalid")
         else:
@@ -123,68 +157,39 @@ class Monadic(MonadInterface):
 
 
 
-class Pipe(Pysk, Monadic):
-    """
-    Bugs:
-    * Doesn't work, but it should - should dispatch when 2nd argument is Pipe:
-        Pipe(function) >> Pipe(argument) << function2
-        == function2(function(argument))
-
-    Future...
-    * if/elif could be simplified by PipeElm/PipeMorph
-    """
-    def __init__(self, value=Pysk.identity):
-        self.value = value
-
-    def bind(self, func):
-        return Pipe(Pysk.compose(func, self.value))
-
-    def apply(self, func):
-        return Pipe(Pysk.apply(self.value, func))
-
-    def map(self, arg):
-        return Pipe(Pysk.call(self.value, arg))
-
-
 class ChainCategory(CategoryInterface):
-    @abc.abstractproperty
-    def value(self):
-        NotImplemented
-
     @pedanticmethod
     def identity(cls, elm):
         return cls(elm.value)
 
     @pedanticmethod
     def compose(cls, self, morph):
-        return cls(Pysk.compose(self.value, morph.value))
+        # return cls(Pysk.compose(self.value, morph.value))
+        @functools.wraps(self)
+        def wrapped(value):
+            return self.value(morph.value(value))
+        return cls(wrapped)
 
     @pedanticmethod
     def call(cls, morph, elm):
-        return cls(Pysk.call(morph.value, elm.value))
+        return cls(morph.value(elm.value))
 
     @pedanticmethod
     def apply(cls, elm, morph):
-        return cls(Pysk.apply(elm.value, morph.value))
-
+        return cls(morph.value(elm.value))
+        
 
 class Chain(ChainCategory, Monadic):
-    def __init__(self, value=ChainCategory.identity):
+    def __init__(self, value=_identity):
         self.value = value
 
     @pedanticmethod
     def bind(cls, morph, func):
-        # Express in terms of compose
         return cls.compose(morph, cls(func))
-        # Alternately, and more efficently
-        #return cls(Pysk.compose(morph.value, func))
         
     @pedanticmethod
     def map(cls, morph, value):
-        #
         return cls.call(morph, cls(value))
-        #
-        # return cls(Pysk.call(morph.value, value))
 
 
 class NotPassed:
@@ -214,11 +219,33 @@ class MaybeCategory(CategoryInterface):
 
     @pedanticmethod
     def call(cls, morph: 'cls.Morphism', element: 'cls.Element'):
-        return cls(morph.value(element.value))
+        #return cls(morph.value(element.value))
+        return element.apply(morph)
 
     @pedanticmethod
     def apply(cls, elm, morph):
-        return cls(morph.value(elm.value))
+        #return cls(morph.value(elm.value))
+        
+        # Experimenting, to get strict eval working: Maybe(value) >> f1
+        previous = elm.value
+        current = morph.value(elm.initial)
+
+
+        print()
+        print("previous:", type(previous), previous)
+        print("current:", type(current), current)
+        print()
+        import ipdb
+        ipdb.set_trace()
+        print()
+        
+
+        if previous is None:
+            return cls(current, elm.initial)
+        else:
+            return cls(previous, elm.initial)
+
+        
 
     def __repr__(self):
         return Pysk.__repr__(self)
@@ -263,8 +290,13 @@ class Maybe(MaybeCategory, Monadic):
         Maybe('value') >> f >> g
             should be valid
     """
-    def __init__(self, value=_snuff, fallback=_snuff):
+    def __init__(self, value=_snuff, initial=NotPassed):
         self.value = value
+        # Initial should not be used for any callable/morphism of Maybe
+        if initial is NotPassed:
+            self.initial = value
+        else:
+            self.initial = initial
 
     @pedanticmethod
     def map(cls, morphism: 'cls.Morphism', value: 'Pysk.Element') -> 'cls.Element':
@@ -360,12 +392,17 @@ samples = (
     'http://cdn.theatlantic.com/assets/media/img/mt/2016/02/the_revenant_2/thumb_wide.ext',
 )
 
-
-
+s1 = samples[0]
+s2 = samples[1]
+s3 = samples[2]
 
 c1 = crop('http://opeterml1297110.njgroup.com:7000/')
 c2 = crop('http://cdn.theatlantic.com/assets/')
 c3 = crop('https://cdn.theatlantic.com/assets/')
+
+functions = [c1, c2, c3, Pysk.identity, _snuff]
+values = [s1, s2, s3, 'naaaanaaa', '']
+
 m0 = Maybe()
 m1 = Maybe(c1)
 m2 = Maybe(c2)
@@ -375,16 +412,20 @@ m01 = m0.compose(m1)
 m012 = m01.compose(m2)
 m0123 = m012.compose(m3)
 
-s1 = samples[0]
-s2 = samples[1]
-s3 = samples[2]
-
 ms1 = Maybe(s1)
 ms2 = Maybe(s2)
 ms3 = Maybe(s3)
 
-#assert m0.call(ms1) == Maybe.call(m0, ms1)
+expected = c1(s1)
+result = (m01 >> s1 << Pysk.identity)
 
+
+print()
+print("result:", type(result), result)
+print()
+import ipdb
+ipdb.set_trace()
+print()
 
 
 class PipeTestCase(unittest.TestCase):
@@ -392,16 +433,14 @@ class PipeTestCase(unittest.TestCase):
     These confirm that everything is normal for Pipe
     """
     def test_parsed(self):
-        parse = Pipe() >> remove_prefix >> remove_ext
+        parse = Chain() >> remove_prefix >> remove_ext
         results = [parse << sample for sample in samples]
+        expected = [remove_ext(remove_prefix(sample)) for sample in samples]
 
-        print()
-        print("results:", type(results), results)
-        print()
-        import ipdb
-        ipdb.set_trace()
-        print()
-        
+        self.assertEqual(
+            results,
+            expected
+        )
 
 
 class MaybeTestCase(unittest.TestCase):
@@ -443,33 +482,43 @@ class MaybeTestCase(unittest.TestCase):
         @todo: This thing with a lot  or random functions
         and s values
         """
-        functions = [c1, c2, c3, Pysk.identity]
-        values = [s1, s2, s3, 'naaaanaaa']
-
         for f1, f2 in itertools.product(functions, repeat=2):
             for val in values:
+                try:
+                    self.assertEqual(
+                        Maybe(f1) >> f2 >> s1 << Pysk.identity,
+                        Maybe(s1) >> f1 >> f2 << Pysk.identity
+                    )
+                except AssertionError as exc:
+
+                    (Maybe(s1) >> f1).rshift(f2)
+
+                    print()
+                    print(f1, f2, s1)
+                    print("exc:", type(exc), exc)
+                    print()
+                    import ipdb
+                    ipdb.set_trace()
+                    print()
+                    
+
+    def test_identity_law(self):
+        for f1 in functions:
+            for val in values:
                 self.assertEqual(
-                    Maybe(f1) >> f2 >> s1 << Pysk.identity,
-                    Maybe(s1) >> c1 >> c2 << Pysk.identity
+                    Maybe() >> f1 << val,
+                    Maybe(f1) << val
                 )
 
-        #self.assertEqual(
-        #    (Maybe(c1) >> c2) << s1,
-        #    Maybe(s1) >> c1 >> c2 << Pysk.identity
-        #)
+    #def test_play(self):
+    #    result = Maybe(s1) >> c1
 
-    def test_play(self):
-        result = Maybe(s1) >> c1
-
-        id_val = Maybe() >> s1
-        # Maybe() >> s1  ??
-
-        print()
-        print("result:", type(result), result)
-        print()
-        import ipdb
-        ipdb.set_trace()
-        print()
+    #    print()
+    #    print("result:", type(result), result)
+    #    print()
+    #    import ipdb
+    #    ipdb.set_trace()
+    #    print()
 
 
 if __name__ == "__main__":
