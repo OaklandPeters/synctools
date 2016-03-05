@@ -5,9 +5,18 @@ Monadic.__rshift__
     Maybe('x') >> Pipe(f)
 
 TODO:
+* Make Monadic refer to .map/.bind, by dispatching in __rshift__.
+** Current cases: When isinstance(arg, cls) --> 
+** When not isinstance(arg, cls): if callable(arg) --> 
 * Write check for: Maybe('x') >> Pipe(f)
 * Try... making monad method calls in __rshift__ use 'cls' version: cls.bind(self, arg)
 ** AFTER writing unit-tests...
+
+INTERMEDIATE:
+* Rewrite Pipe and Maybe to be function-sequences, and write a reduce on that.
+** I think, this reduction is 'compose'
+* Trial: rewrite using Element/Morphism distinction. Will cut down on number of dispatches.
+** Ideally, express this only at level of 'Monadic' sugar methods.
 """
 import functools
 import inspect
@@ -19,11 +28,35 @@ from support.interfaces import MonadInterface, CategoryInterface, Pysk
 
 def _identity(x):
     return x
-# _identity = lambda x: x
-_compose = lambda f, g: lambda *args, **kwargs: f(g(*args, **kwargs))
-_apply = lambda x, f: f(x)
-_call = lambda f, x: f(x)
 
+def _constant(x):
+    def wrapper(arg):
+        return x
+    wrapper.__name__ = "constant_"+x.__class__.__name__
+    return wrapper
+
+def _thunk(x):
+    def _thought():
+        return x
+    return _thought
+
+def _resolve(f: 'Callable[[], Any]'):
+    """This is only valid for functions accepting no arguments,
+    or functions accepting any arity.
+        x == _resolve(_thunk(x))
+    """
+    return f()
+
+def _call(f, x):
+    return f(x)
+
+def _apply(x, f):
+    return f(x)
+
+def _compose(f, g):
+    def _composed(arg):
+        return f(g(arg))
+    return _composed
 
 
 class Monadic(MonadInterface):
@@ -67,6 +100,12 @@ class Monadic(MonadInterface):
 
     @pedanticmethod
     def __rshift__(cls, self, arg):
+        """
+        Chain(f) >> g == Chain(compose(f, g))
+        Chain(f) >> x == Chain(f(x))
+        Chain(x) >> f == Chain(f(x))
+        Pipe(x) >> y -> TypeError
+        """
         if not isinstance(arg, cls):
             return self >> cls(arg)
 
@@ -83,24 +122,6 @@ class Monadic(MonadInterface):
         else:
             raise TypeError("Case fall-through error. This should never occur")
 
-
-    @pedanticmethod
-    def rshift(cls, self, arg):
-        if not isinstance(arg, cls):
-            return self.rshift(cls(arg))
-
-        if callable(self.value) and callable(arg.value):
-            #return self.bind(arg.value)
-            return self.compose(arg)
-        elif callable(self.value) and not callable(arg.value):
-            #return self.map(arg.value)
-            return self.call(arg)
-        elif not callable(self.value) and callable(arg.value):
-            return self.apply(arg)
-        elif not callable(self.value) and not callable(arg.value):
-            raise TypeError("Operator 'Pipe(...) >> X', X must be callable")
-        else:
-            raise TypeError("Case fall-through error. This should never occur")
 
     # Old __lshift__
     #def __lshift__(self, arg):
@@ -128,6 +149,10 @@ class Monadic(MonadInterface):
     def __lshift__(cls, self, arg):
         """
         This really needs to be written in terms of something like foldable and traversable
+        Chain(f) << x == f(x)
+        Chain(f) << g == compose(f, g)
+        Chain(x) << f == f(x)
+        Chain(x) << y -> TypeError
         """
         try:
             # SPECIAL CASE:
@@ -157,6 +182,11 @@ class Monadic(MonadInterface):
 
 
 
+
+
+
+
+
 class ChainCategory(CategoryInterface):
     @pedanticmethod
     def identity(cls, elm):
@@ -180,6 +210,17 @@ class ChainCategory(CategoryInterface):
         
 
 class Chain(ChainCategory, Monadic):
+    """
+        Chain(f) >> g == Chain(compose(f, g))
+        Chain(f) >> x == Chain(f(x))
+        Chain(x) >> f == Chain(f(x))
+        Chain(x) >> y -> TypeError
+
+        Chain(f) << x == f(x)
+        Chain(f) << g == compose(f, g)
+        Chain(x) << f == f(x)
+        Chain(x) << y -> TypeError
+    """
     def __init__(self, value=_identity):
         self.value = value
 
@@ -203,12 +244,12 @@ class MaybeCategory(CategoryInterface):
     #    return NotImplemented
 
     @pedanticmethod
-    def compose(cls, self, morphism):
+    def compose(cls, self: 'cls.Morphism', morphism: 'cls.Morphism') -> 'cls.Morphism':
         @functools.wraps(self)
-        def wrapped(value):
-            result = self.value(value)
+        def wrapped(value: 'Pysk.Element') -> 'Pysk.Element':
+            result = self.initial(value)
             if result is None:
-                return morphism.value(value)
+                return morphism.initial(value)
             else:
                 return result
         return cls(wrapped)
@@ -224,26 +265,17 @@ class MaybeCategory(CategoryInterface):
 
     @pedanticmethod
     def apply(cls, elm, morph):
-        #return cls(morph.value(elm.value))
+        return cls(morph.value(elm.value))
         
         # Experimenting, to get strict eval working: Maybe(value) >> f1
-        previous = elm.value
-        current = morph.value(elm.initial)
+        #previous = elm.value
+        #current = morph.value(elm.initial)
+        #if previous is None:
+        #    return cls(current, elm.initial)
+        #else:
+        #    return cls(previous, elm.initial)
 
 
-        print()
-        print("previous:", type(previous), previous)
-        print("current:", type(current), current)
-        print()
-        import ipdb
-        ipdb.set_trace()
-        print()
-        
-
-        if previous is None:
-            return cls(current, elm.initial)
-        else:
-            return cls(previous, elm.initial)
 
         
 
@@ -257,10 +289,6 @@ class MaybeCategory(CategoryInterface):
         if isinstance(other, Maybe):
             return self.value == other.value
         return False
-
-
-def _snuff(arg):
-    return None
 
 
 class Maybe(MaybeCategory, Monadic):
@@ -290,13 +318,32 @@ class Maybe(MaybeCategory, Monadic):
         Maybe('value') >> f >> g
             should be valid
     """
-    def __init__(self, value=_snuff, initial=NotPassed):
-        self.value = value
-        # Initial should not be used for any callable/morphism of Maybe
-        if initial is NotPassed:
-            self.initial = value
-        else:
+    def __init__(self, value=NotPassed, initial=NotPassed):
+        if value is NotPassed and initial is NotPassed:
+            # Zero value
+            self.value = _constant(None)
+            self.initial = None
+        elif value is NotPassed and initial is not NotPassed:
+            # By explicitly providing initial, we are saying a value, and not a morphism
+            self.value = _constant(None)
             self.initial = initial
+        elif value is not NotPassed and initial is NotPassed:
+            # Have to consider what type of value we have
+            #    this is the complicated case
+            # Maybe(function) - treat as morphism
+            if callable(value):
+                self.value = value
+                self.initial = None
+            # Maybe(valuee) - treat as element
+            else:
+                self.value = _constant(None)
+                self.initial = value
+        elif value is not NotPassed and initial is not NotPassed:
+            # Both are provided - use whatever was given
+            self.value = value
+            self.initial = initial
+
+
 
     @pedanticmethod
     def map(cls, morphism: 'cls.Morphism', value: 'Pysk.Element') -> 'cls.Element':
