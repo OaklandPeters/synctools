@@ -8,7 +8,7 @@ from functools import partial
 from lxml import html, cssselect
 
 from sync_media_function import sync_media
-from metafuncs import branch, combine, maybe, tryit, getitem, cache, Chainable, Pipe
+from metafuncs import branch, combine, maybe, tryit, getitem, cache, Pipe
 
 
 # Support functions
@@ -27,7 +27,6 @@ split_path_parts = lambda src: PATH_SPLIT_REGEX.match(src).groups()  # :: str ->
 MEDIA_PATH_REGEX = re.compile(r'/media/')
 is_media_path = lambda path: MEDIA_PATH_REGEX.search(path) is not None
 fixup_cdn = lambda url: "http:"+url if url.startswith('//cdn') else url
-
 
 def crop(prefix):
     def wrapped(word):

@@ -105,35 +105,6 @@ def get(key, default=None):
     return wrapper
 
 
-
-class Chainable(object):
-    """
-    Stand-in replacement for using Monads for function ordering and chaining.
-    """
-    def __init__(self, callback=_identity):
-        self._callback = callback
-
-    def bind(self, func):
-        return Chainable(_compose(func, self._callback))
-
-    def __rshift__(self, function):
-        """'>>', used as a chaining or 'Bind' operator. The following are equivalent:
-            chainableValue >> someFunction
-            chainableValue.bind(someFunction)
-            someFunction(Chainable._callback)
-        """
-        if callable(function):
-            result = self.bind(function)
-            if not isinstance(result, Chainable): raise TypeError("Operator '>>' must return a Chainable instance.")
-            return result
-        else:
-            if not isinstance(function, Chainable): raise TypeError("Operator '>>' must return a Chainable instance.")
-            return self.bind(lambda _: function)
-
-    def __call__(self, *args, **kwargs):
-        return self._callback(*args, **kwargs)
-
-
 class Pipe(object):
     """
     Bugs:
@@ -209,24 +180,7 @@ class Pipe(object):
         else:
             raise TypeError("Case fall-through error. This should never occur")
 
-
-#
-#   Unused metafunctions
-#
-# These should be abstracted out
-def mapper(func):
-    """Decorator. Return a function mapping function over iterables."""
-    def wrap_map(*args, **kwargs):
-        return map(func, *args, **kwargs)
-    return wrap_map
-
-def filterer(func):
-    """Decorator. Return a function which applies the function as a filter."""
-    def wrap_filter(*args, **kwargs):
-        return filter(func, *args, **kwargs)
-    return wrap_filter
-
-
-
-
-
+    def __repr__(self):
+        return str.format(
+            "{0}({1})", self.__class__.__name__, self._value
+        )

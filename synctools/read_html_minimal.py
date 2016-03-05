@@ -11,9 +11,9 @@ import urllib2
 from lxml import html, cssselect
 
 from sync_media_function import sync_media
-from metafuncs import branch, combine, maybe, tryit, getitem, cache, Chainable
+from metafuncs import branch, combine, maybe, tryit, getitem, cache
 
-# Composable = Chainable
+# Composable = Pipe
 from monad.composable import Composable
 import functools
 F = functools.partial
