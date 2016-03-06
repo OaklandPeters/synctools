@@ -241,37 +241,52 @@ class MaybeCategory(CategoryInterface):
 
 class Maybe(MaybeCategory, Monadic):
     """
+    value - morphisms hold function here, and elements hold results
+    initial - for elements only, holds initial argument
 
     """
-    def __init__(self, value=NotPassed, initial=NotPassed):
-        if value is NotPassed and initial is NotPassed:
-            # Zero value
-            self.value = _constant(None)
+    def __init__(self, *args):
+        # Case 1 - no arguments --> identity morphism
+        if len(args) == 0:
+            self.value = _constant(None)  # might have to set = _constant(None)
             self.initial = None
-        elif value is NotPassed and initial is not NotPassed:
-            # By explicitly providing initial, we are saying a value, and not a morphism
-            self.value = _constant(None)
-            self.initial = initial
-        elif value is not NotPassed and initial is NotPassed:
-            # Have to consider what type of value we have
-            #    this is the complicated case
-            # Maybe(function) - treat as morphism
-            if callable(value):
-                self.value = value
+        # Case 2 - only 1 thing passed in
+        elif len(args) == 1:
+            # Morphism
+            if callable(args[0]):
+                self.value = args[0]
                 self.initial = None
-            # Maybe(valuee) - treat as element
+            # Element
             else:
-                self.value = _constant(None)
-                self.initial = value
-        elif value is not NotPassed and initial is not NotPassed:
-            # Both are provided - use whatever was given
-            self.value = value
-            self.initial = initial
+                self.value = None
+                self.initial = args[0]
+        # Case 3 - two things passed in
+        elif len(args) == 2:
+            self.value, self.initial = args[0], args[1]
 
+    @classmethod
+    def construct(cls, value: 'Pysk.Element') -> 'cls.Element':
+        return cls(value)
 
+    @classmethod
+    def decorate(cls, function: 'Pysk.Morphism') -> 'cls.Morphism':
+        """
+        This might need more elaborate behavior
+        """
+        return cls.identity().compose(function)
 
     @pedanticmethod
     def map(cls, morphism: 'cls.Morphism', value: 'Pysk.Element') -> 'cls.Element':
+
+        print("Not sure what to do in map")
+        print("morphism:", type(morphism), morphism)
+        print()
+        import ipdb
+        ipdb.set_trace()
+        print()
+        
+         
+
         #result = morphism.value(value)
         #if result is not None:
         #    return cls(result)
@@ -283,11 +298,12 @@ class Maybe(MaybeCategory, Monadic):
         #        return cls(morphism.fallback)
 
 
-        result = morphism.value(value)
-        if result is None:
-            return morphism.value(value)
-        else:
-            return result
+
+        #result = morphism.value(value)
+        #if result is None:
+        #    return morphism.value(value)
+        #else:
+        #    return result
 
     @pedanticmethod
     def bind(cls, self: 'cls.Morphism', func: 'Pysk.Morphism') -> 'cls.Morphism':
@@ -328,6 +344,7 @@ class Maybe(MaybeCategory, Monadic):
             raise TypeError("'Pipe() >> argument << argument' is invalid")
         else:
             raise TypeError("Case fall-through error. This should never occur")
+
 
 def maybe(func, fallback=None):
     """Decorator. If func returns None, then do fallback."""
