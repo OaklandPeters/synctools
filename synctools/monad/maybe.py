@@ -188,8 +188,6 @@ class Chain(ChainCategory, Monadic):
         return cls.call(morph, cls(value))
 
 
-
-
 class MaybeCategory(CategoryInterface):
     @pedanticmethod
     def compose(cls, self: 'cls.Morphism', morphism: 'cls.Morphism') -> 'cls.Morphism':
@@ -201,18 +199,6 @@ class MaybeCategory(CategoryInterface):
             else:
                 return result
         return cls(wrapped)
-
-
-        # ----- old: worked, but didn't track initial, so
-        # --- couldn't do eager evaluation
-        #@functools.wraps(self)
-        #def wrapped(value: 'Pysk.Element') -> 'Pysk.Element':
-        #    result = self.value(value)
-        #    if result is None:
-        #        return morphism.value(value)
-        #    else:
-        #        return result
-        #return cls(wrapped)
 
     @classmethod
     def identity(cls, self):
@@ -344,7 +330,7 @@ class Maybe(MaybeCategory, Monadic):
             raise TypeError("Case fall-through error. This should never occur")
 
     @pedanticmethod
-    def __lsfhit__(cls, self, arg):
+    def __lshift__(cls, self, arg):
         if callable(self.value) and callable(arg):
             return Pysk.compose(arg, self.value)
         elif callable(self.value) and not callable(arg):
