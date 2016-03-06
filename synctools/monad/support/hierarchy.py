@@ -1,3 +1,8 @@
+"""
+@todo: Add Functor Interface
+@todo: Make a category-specific version of __rshift__, which just has apply/call/compose, and call it Category-Sugar
+@todo: Build a monad-specific version of __rshift__, that rests on the category version, and adds use of decorate/construct
+"""
 import abc
 
 from .methods import abstractpedanticmethod, pedanticmethod, abstractclassproperty
@@ -37,7 +42,7 @@ class Morphism(metaclass=abc.ABCMeta):
         return NotImplemented
 
 
-class MonadicMorphismInterface(Morphism):
+class Functor:
     @abstractclassproperty
     def Codomain(cls) -> Monad:
         """For Monads, the category is basically the monad itself."""
@@ -46,21 +51,10 @@ class MonadicMorphismInterface(Morphism):
     @abstractclassproperty
     def Domain(cls) -> 'Category':
         """Domain will almost always be Pysk."""
-        return NotImplemented
+        return NotImplemented    
 
-    @abstractpedanticmethod
-    def map(cls,
-            element: 'cls.Codomain.Element',
-            constructor: 'Callable[cls.Domain.Element, [cls.Codomain.Element]]'
-            ) -> 'cls.Codomain.Element':
-        """
-        In Haskell, this is called 'bind', using symbol: >>=
-        'f_apply' ~ functor-specific apply
 
-        (C1, D1 -> C2)  ->  C2
-        """
-        return NotImplemented
-
+class Monadic(Category, Functor):
     @abstractpedanticmethod
     def bind(cls,
              morphism: 'cls.Codomain.Morphism',
@@ -99,7 +93,7 @@ class MonadicElement(Monadic, Element):
 class MonadicMorphism(Monadic, Morphism):
     """Placeholder for an idea"""
     def __call__(self, element: 'cls.Codomain.Element') -> 'cls.Codomain.Element':
-        return self.map(element)
+        return self.call(self.construct(element))
 
     @pedanticmethod
     def __rshift__(cls, self: 'Morphism', arg) -> 'Union[cls.Codomain.Element, cls.Codomain.Morphism]':
@@ -124,6 +118,19 @@ class MonadicMorphism(Monadic, Morphism):
 
 class MonadicElement(MonadicElement):
     """Placeholder for any idea"""
+    @abstractpedanticmethod
+    def map(cls,
+            element: 'cls.Codomain.Element',
+            constructor: 'Callable[cls.Domain.Element, [cls.Codomain.Element]]'
+            ) -> 'cls.Codomain.Element':
+        """
+        In Haskell, this is called 'bind', using symbol: >>=
+        'f_apply' ~ functor-specific apply
+
+        (C1, D1 -> C2)  ->  C2
+        """
+        return NotImplemented
+
     @pedanticmethod
     def __rshift__(cls, self: 'MonadicElement', arg) -> 'Union[cls.Domain.Element, cls.Domain.Morphism]':
         if isinstance(arg, cls.Codomain.Morphism):
@@ -141,6 +148,16 @@ class MonadicElement(MonadicElement):
     def __matmul__(cls, self: 'Element', constructor: 'Callable[cls.Domain.Element, [cls.Codomain.Element]]') -> 'cls.Domain.Morphism':
         """This is the bind function."""
         return cls.f_call(self, constructor)
+
+
+
+class Comonad(Functor):
+    """
+    A thing designed to make '<<' sensible.
+    """
+    @abstractpedanticmethod
+    def corate(cls, morphism) -> 'cls.D':
+        """Opposite of decorate"""
 
 
 
