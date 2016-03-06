@@ -1,7 +1,7 @@
 import abc
 
 from .methods import abstractpedanticmethod, pedanticmethod, abstractclassproperty
-from .interfaces import Pysk, MonadInterface
+from .interfaces import Pysk, Monad, Category
 
 
 class Element(metaclass=abc.ABCMeta):
@@ -39,12 +39,12 @@ class Morphism(metaclass=abc.ABCMeta):
 
 class MonadicMorphismInterface(Morphism):
     @abstractclassproperty
-    def Codomain(cls) -> MonadInterface:
+    def Codomain(cls) -> Monad:
         """For Monads, the category is basically the monad itself."""
         return NotImplemented
 
     @abstractclassproperty
-    def Domain(cls) -> 'CategoryInterface':
+    def Domain(cls) -> 'Category':
         """Domain will almost always be Pysk."""
         return NotImplemented
 
@@ -92,18 +92,12 @@ class MonadicMorphismInterface(Morphism):
         return NotImplemented
 
 
-class MonadicElementInterface(MonadInterface, Element):
-    @abstractclassproperty
-    def Category(cls) -> MonadInterface:
-        return NotImplemented
+class MonadicElement(Monadic, Element):
+    pass
 
 
-class MonadicMorphism(MonadicMorphismInterface):
+class MonadicMorphism(Monadic, Morphism):
     """Placeholder for an idea"""
-    @abstractclassproperty
-    def Category(cls) -> MonadInterface:
-        return NotImplemented
-
     def __call__(self, element: 'cls.Codomain.Element') -> 'cls.Codomain.Element':
         return self.map(element)
 
@@ -128,7 +122,7 @@ class MonadicMorphism(MonadicMorphismInterface):
 
 
 
-class MonadicElement(MonadicElementInterface):
+class MonadicElement(MonadicElement):
     """Placeholder for any idea"""
     @pedanticmethod
     def __rshift__(cls, self: 'MonadicElement', arg) -> 'Union[cls.Domain.Element, cls.Domain.Morphism]':

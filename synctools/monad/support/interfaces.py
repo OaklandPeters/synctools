@@ -9,7 +9,7 @@ import functools
 from .methods import abstractpedanticmethod, pedanticmethod, abstractclassproperty
 
 
-class CategoryInterface(metaclass=abc.ABCMeta):
+class Category(metaclass=abc.ABCMeta):
     #
     #   Category Methods
     #
@@ -35,7 +35,7 @@ class CategoryInterface(metaclass=abc.ABCMeta):
 
     @classmethod
     def __subclasshook__(cls, subclass):
-        if cls is CategoryInterface:
+        if cls is Category:
             for method in cls.__abstractmethods__:
                 for base in subclass.__mro__:
                     if method in base.__dict__:
@@ -46,7 +46,7 @@ class CategoryInterface(metaclass=abc.ABCMeta):
         return NotImplemented
 
 
-class MonadInterface(CategoryInterface):
+class Monad(Category):
     @abstractpedanticmethod
     def map(cls, self: 'cls.Morphism', element: 'Psyk.Element') -> 'cls.Element':
         return NotImplemented
@@ -57,7 +57,7 @@ class MonadInterface(CategoryInterface):
 
     @classmethod
     def __subclasshook__(cls, subclass):
-        if cls is MonadInterface:
+        if cls is Monad:
             for method in cls.__abstractmethods__:
                 for base in subclass.__mro__:
                     if method in base.__dict__:
@@ -68,7 +68,7 @@ class MonadInterface(CategoryInterface):
         return NotImplemented
 
 
-class Pysk(CategoryInterface):
+class Pysk(Category):
     @pedanticmethod
     def identity(cls, self):
         return self
@@ -119,27 +119,27 @@ class GenericFunction:
         return generic
 
 
-@GenericFunction(CategoryInterface)
+@GenericFunction(Category)
 def identity(value):
     return Pysk.identity(value)
 
-@GenericFunction(CategoryInterface)
+@GenericFunction(Category)
 def apply(element, morphism):
     return Pysk.apply(element, morphism)
 
-@GenericFunction(CategoryInterface)
+@GenericFunction(Category)
 def compose(morphism, function):
     return Pysk.compose(morphism, function)
 
-@GenericFunction(CategoryInterface)
+@GenericFunction(Category)
 def call(morphism, element):
     return Pysk.call(morphism, element)
 
-@GenericFunction(MonadInterface)
+@GenericFunction(Monad)
 def map(morphism, element):
     return Pysk.call(morphism, element)
 
-@GenericFunction(MonadInterface)
+@GenericFunction(Monad)
 def bind(morphism, function):
     return Pysk.compose(morphism, function)
 

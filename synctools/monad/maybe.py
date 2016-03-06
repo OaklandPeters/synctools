@@ -27,7 +27,7 @@ import abc
 
 
 from support.methods import pedanticmethod, classproperty
-from support.interfaces import MonadInterface, CategoryInterface, Pysk
+from support.interfaces import Monad, Category, Pysk
 
 def _identity(x):
     return x
@@ -71,7 +71,7 @@ def _deoption(value, fallback):
         return value
 
 
-class Monadic(MonadInterface):
+class Monadic(Monad):
     """
     Should have abstracts:
         bind
@@ -142,7 +142,7 @@ class Monadic(MonadInterface):
             raise TypeError("Case fall-through error. This should never occur")
 
 
-class ChainCategory(CategoryInterface):
+class ChainCategory(Category):
     @pedanticmethod
     def identity(cls, elm):
         return cls(elm.value)
@@ -188,7 +188,7 @@ class Chain(ChainCategory, Monadic):
         return cls.call(morph, cls(value))
 
 
-class MaybeCategory(CategoryInterface):
+class MaybeCategory(Category):
     @pedanticmethod
     def compose(cls, self: 'cls.Morphism', morphism: 'cls.Morphism') -> 'cls.Morphism':
         @functools.wraps(self.value)
