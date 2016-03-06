@@ -88,28 +88,6 @@ class Monadic(MonadInterface):
         """
         return self.map(arg)
 
-    # OLD __rshift__
-    #def __rshift__(self, arg):
-    #    """Chains inside the category.
-    #    Pipe(function) >> function == Pipe(function)
-    #    Pipe(function) >> argument == Pipe(function(argument))
-    #    Pipe(argument) >> function == Pipe(function(argument))
-    #    Pipe(argument) >> argument -> TypeError
-    #    """
-    #    if isinstance(arg, Monadic):
-    #        return self >> arg.value
-
-    #    if callable(self.value) and callable(arg):
-    #        return self.bind(arg)
-    #    elif callable(self.value) and not callable(arg):
-    #        return self.map(arg)
-    #    elif not callable(self.value) and callable(arg):
-    #        return self.apply(arg)
-    #    elif not callable(self.value) and not callable(arg):
-    #        raise TypeError("Operator 'Pipe(...) >> X', X must be callable")
-    #    else:
-    #        raise TypeError("Case fall-through error. This should never occur")
-
     @pedanticmethod
     def __rshift__(cls, self, arg):
         """
@@ -133,29 +111,6 @@ class Monadic(MonadInterface):
             raise TypeError("Operator 'Pipe(...) >> X', X must be callable")
         else:
             raise TypeError("Case fall-through error. This should never occur")
-
-
-    # Old __lshift__
-    #def __lshift__(self, arg):
-    #    """Exit the category.
-    #    Pipe(function) << argument == function(argument)
-    #    Pipe(function) << function == Pysk.compose(function, function)
-    #    Pipe(argument) << function == function(argument)
-    #    Pipe(argument) << argument -> TypeError
-    #    """
-    #    if isinstance(arg, Monadic):
-    #        return self << arg.value
-
-    #    if callable(self.value) and callable(arg):
-    #        return Pysk.compose(arg, self.value)
-    #    elif callable(self.value) and not callable(arg):
-    #        return self.value(arg)
-    #    elif not callable(self.value) and callable(arg):
-    #        return arg(self.value)
-    #    elif not callable(self.value) and not callable(arg):
-    #        raise TypeError("'Pipe() >> argument << argument' is invalid")
-    #    else:
-    #        raise TypeError("Case fall-through error. This should never occur")
 
     @pedanticmethod
     def __lshift__(cls, self, arg):
@@ -245,16 +200,9 @@ class Chain(ChainCategory, Monadic):
         return cls.call(morph, cls(value))
 
 
-class NotPassed:
-    pass
 
 
 class MaybeCategory(CategoryInterface):
-    #@property
-    #@abc.abstractmethod
-    #def value(self):
-    #    return NotImplemented
-
     @pedanticmethod
     def compose(cls, self: 'cls.Morphism', morphism: 'cls.Morphism') -> 'cls.Morphism':
         @functools.wraps(self)
@@ -305,30 +253,7 @@ class MaybeCategory(CategoryInterface):
 
 class Maybe(MaybeCategory, Monadic):
     """
-    Concerns:
-    (1) what should this be?
-        Maybe() << 'x'
-            'x', None, or error?
 
-    (2) Maybe() >> identity
-
-    (3) Like Pipe, I think this doesn't handle the case when trying to
-        combine two instances of Maybe:
-            Maybe(argument) >> Maybe(function)
-            Maybe(function) >> Maybe(argument)
-
-    fmap( f . g) == fmap(f) . fmap(g)
-
-    Maybe( Maybe.compose(f, g) )  == Maybe(f) >> Maybe(g)
-    Maybe( Maybe.compose(identity, f)) == Maybe() >> Maybe(f)
-
-    So, this might have to be true
-        Maybe(f)  !=   Maybe() >> f
-
-
-    Important:
-        Maybe('value') >> f >> g
-            should be valid
     """
     def __init__(self, value=NotPassed, initial=NotPassed):
         if value is NotPassed and initial is NotPassed:
