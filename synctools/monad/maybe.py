@@ -283,25 +283,33 @@ class Maybe(MaybeCategory, MaybeFunctor, Monadic):
             self.value, self.initial = args[0], args[1]
 
     @pedanticmethod
-    def map(cls, morphism: 'cls.Morphism', value: 'Pysk.Element') -> 'cls.Element':
+    def flatten(cls, element):
+        """@todo - write this"""
+        pass
 
-        print("Not sure what to do in map")
-        print("morphism:", type(morphism), morphism)
-        print()
-        import ipdb
-        ipdb.set_trace()
-        print()
-        
-         
+    @pedanticmethod
+    def map(cls,
+            elm: 'MaybeCategory.Element',
+            constructor: 'Callable[Pysk.Element, [MaybeCategory.Element]]'
+            ) -> 'MaybeCategory.Element':
 
+        return cls.flatten(cls.apply(elm, constructor))
 
+    @pedanticmethod
+    def bind(cls,
+             morphism: 'cls.Codomain.Morphism',
+             constructor: 'Callable[cls.Domain.Element, [cls.Codomain.Element]]'
+             ) -> 'cls.Codomain.Element':
+        """
+        In Haskell, this is called 'Klesli composition', using symbol: >=>
+        'f_compose' ~ functor-specific composotion
 
-
-        #result = morphism.value(value)
-        #if result is None:
-        #    return morphism.value(value)
-        #else:
-        #    return result
+        (C1 -> C2, D2 -> C3) -> C3
+        """
+        @functools.wraps(constructor)
+        def wrapped_constructor(element):
+            return cls.flatten(cls.apply(element, constructor))
+        return cls.compose(morphism, wrapped_constructor)
 
     @pedanticmethod
     def bind(cls, self: 'cls.Morphism', func: 'Pysk.Morphism') -> 'cls.Morphism':
