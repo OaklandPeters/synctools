@@ -1,9 +1,5 @@
 #!/usr/bin/env python3
 """
-Monadic.__rshift__
-    WILL go wrong when passed an object which is Monadic, but not from the monad in question
-    Maybe('x') >> Pipe(f)
-
 TODO:
 * Make Monadic refer to .map/.bind, by dispatching in __rshift__.
 ** Current cases: When isinstance(arg, cls) --> 
@@ -11,12 +7,19 @@ TODO:
 * Write check for: Maybe('x') >> Pipe(f)
 * Try... making monad method calls in __rshift__ use 'cls' version: cls.bind(self, arg)
 ** AFTER writing unit-tests...
+* Unittest for     (2) Maybe() >> identity
 
 INTERMEDIATE:
+
+* Handling Monadic.__rshift__ - when passed an object from a different monad
 * Rewrite Pipe and Maybe to be function-sequences, and write a reduce on that.
 ** I think, this reduction is 'compose'
-* Trial: rewrite using Element/Morphism distinction. Will cut down on number of dispatches.
-** Ideally, express this only at level of 'Monadic' sugar methods.
+* Rewrite: using Element/Morphism, as shown in hierarchy.py. Will cut down on the number of disptaches, and make Element not express a __call__ function.
+** Ideally, express this only at level of 'Monadic' sugar methods. IE the only replacement will be Monadic-->MonadicElement,MonadicMorphism + changing what is returned by the __new__ method
+
+
+FOLDABLE/TRAVERSABLE:
+    To make the extraction function '<< f1' work right, it will have to be a monoid, so the zero can be determined.
 """
 import functools
 import inspect
