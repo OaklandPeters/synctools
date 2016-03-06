@@ -26,7 +26,7 @@ import inspect
 import abc
 
 
-from support.methods import pedanticmethod
+from support.methods import pedanticmethod, classproperty
 from support.interfaces import MonadInterface, CategoryInterface, Pysk
 
 def _identity(x):
@@ -236,7 +236,28 @@ class MaybeCategory(CategoryInterface):
         return False
 
 
-class Maybe(MaybeCategory, Monadic):
+class MaybeFunctor:
+    @classproperty
+    def Domain(cls):
+        return Pysk
+
+    @classproperty
+    def Codomain(cls):
+        return MaybeCategory
+
+    @classmethod
+    def construct(cls, value: 'Pysk.Element') -> 'cls.Element':
+        return cls(value)
+
+    @classmethod
+    def decorate(cls, function: 'Pysk.Morphism') -> 'cls.Morphism':
+        """
+        This might need more elaborate behavior
+        """
+        return cls.identity().compose(function)
+
+
+class Maybe(MaybeCategory, MaybeFunctor, Monadic):
     """
     value - morphisms hold function here, and elements hold results
     initial - for elements only, holds initial argument
@@ -261,17 +282,6 @@ class Maybe(MaybeCategory, Monadic):
         elif len(args) == 2:
             self.value, self.initial = args[0], args[1]
 
-    @classmethod
-    def construct(cls, value: 'Pysk.Element') -> 'cls.Element':
-        return cls(value)
-
-    @classmethod
-    def decorate(cls, function: 'Pysk.Morphism') -> 'cls.Morphism':
-        """
-        This might need more elaborate behavior
-        """
-        return cls.identity().compose(function)
-
     @pedanticmethod
     def map(cls, morphism: 'cls.Morphism', value: 'Pysk.Element') -> 'cls.Element':
 
@@ -284,15 +294,6 @@ class Maybe(MaybeCategory, Monadic):
         
          
 
-        #result = morphism.value(value)
-        #if result is not None:
-        #    return cls(result)
-        #else:
-        #    # When result is None - look at fallback
-        #    if isinstance(morphism.fallback, Maybe):
-        #        return morphism.fallback.map(value)
-        #    else:
-        #        return cls(morphism.fallback)
 
 
 
