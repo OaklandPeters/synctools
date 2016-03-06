@@ -238,6 +238,9 @@ class MaybeCategory(CategoryInterface):
     def __repr__(self):
         return Pysk.__repr__(self)
 
+    def __str__(self):
+        return Pysk.__str__(self)
+
     def __call__(self, element):
         return self.call(element)
 
@@ -431,7 +434,7 @@ c1 = crop('http://opeterml1297110.njgroup.com:7000/')
 c2 = crop('http://cdn.theatlantic.com/assets/')
 c3 = crop('https://cdn.theatlantic.com/assets/')
 
-functions = [c1, c2, c3, Pysk.identity, _snuff]
+functions = [c1, c2, c3, Pysk.identity, _constant(None)]
 values = [s1, s2, s3, 'naaaanaaa', '']
 
 m0 = Maybe()
@@ -448,11 +451,12 @@ ms2 = Maybe(s2)
 ms3 = Maybe(s3)
 
 expected = c1(s1)
-result = (m01 >> s1 << Pysk.identity)
+m01_s1 = m01 >> s1
+#result = (m01 >> s1 << Pysk.identity)
 
 
 print()
-print("result:", type(result), result)
+print("m01_s1:", type(m01_s1), m01_s1)
 print()
 import ipdb
 ipdb.set_trace()
