@@ -87,9 +87,17 @@ class Pysk(CategoryInterface):
     def __init__(self, value):
         self.value = value
 
-    def __repr__(self):
-        return str.format("{0}({1})".format(self.__class__.__name__, self.value))
+    def __str__(self):
+        return str.format(
+            "{0}({1})", self.__class__.__name__,
+            _short_str(self.value)
+        )
 
+    def __repr__(self):
+        return str.format(
+            "{0}({1})",
+            self.__class__.__name__,
+            repr(self.__dict__))
 
 
 class GenericFunction:
@@ -130,6 +138,20 @@ def map(morphism, element):
 @GenericFunction(MonadInterface)
 def bind(morphism, function):
     return Pysk.compose(morphism, function)
+
+
+# Internal utility functions
+def _short_str(obj, max_len=30):
+    """
+    """
+    if hasattr(obj, '__name__'):
+        full = obj.__name__
+    else:
+        full = str(obj)
+    if len(full) <= max_len:
+        return full
+    else:
+        return full[:max_len] + " ..."
 
 
 
