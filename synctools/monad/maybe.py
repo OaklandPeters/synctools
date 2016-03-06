@@ -130,37 +130,16 @@ class Monadic(MonadInterface):
         Monad(x) << g  ==  apply(x, g)
         Monad(x) << y  ->  TypeError
         """
-        try:
-            # SPECIAL CASE:
-            # ... I think this ~ join
-            if not isinstance(arg, cls):
-                return self << cls(arg)
-        except AttributeError as exc:
-
-            print()
-            print("exc:", type(exc), exc)
-            print()
-            import ipdb
-            ipdb.set_trace()
-            print()
-            
-
-        if callable(self.value) and callable(arg.value):
-            return Pysk.compose(arg.value, self.value)
-        elif callable(self.value) and not callable(arg.value):
-            return self.value(arg.value)
-        elif not callable(self.value) and callable(arg.value):
-            return arg.value(self.value)
-        elif not callable(self.value) and not callable(arg.value):
+        if callable(self.value) and callable(arg):
+            return Pysk.compose(arg, self.value)
+        elif callable(self.value) and not callable(arg):
+            return self.value(arg)
+        elif not callable(self.value) and callable(arg):
+            return arg(self.value)
+        elif not callable(self.value) and not callable(arg):
             raise TypeError("'Pipe() >> argument << argument' is invalid")
         else:
             raise TypeError("Case fall-through error. This should never occur")
-
-
-
-
-
-
 
 
 class ChainCategory(CategoryInterface):
@@ -315,6 +294,40 @@ class Maybe(MaybeCategory, Monadic):
         """Basically compose. Should put func at the end of the chain."""
         return self.compose(Maybe(func))
 
+    @pedanticmethod
+    def __rshift__(cls, self, arg):
+        """
+        Chain(f) >> g == Chain(compose(f, g))
+        Chain(f) >> x == Chain(f(x))
+        Chain(x) >> f == Chain(f(x))
+        Pipe(x) >> y -> TypeError
+        """
+        if not isinstance(arg, cls):
+            arg = cls(arg)
+
+        if callable(self.value) and callable(arg.value):
+            return self.compose(arg)
+        elif callable(self.value) and not callable(arg.value):
+            return self.call(arg)
+        elif not callable(self.value) and callable(arg.value):
+            return self.apply(arg)
+        elif not callable(self.value) and not callable(arg.value):
+            raise TypeError("Operator 'Pipe(...) >> X', X must be callable")
+        else:
+            raise TypeError("Case fall-through error. This should never occur")
+
+    @pedanticmethod
+    def __lsfhit__(cls, self, arg):
+        if callable(self.value) and callable(arg):
+            return Pysk.compose(arg, self.value)
+        elif callable(self.value) and not callable(arg):
+            return self.value(arg)
+        elif not callable(self.value) and callable(arg):
+            return arg(self.value)
+        elif not callable(self.value) and not callable(arg):
+            raise TypeError("'Pipe() >> argument << argument' is invalid")
+        else:
+            raise TypeError("Case fall-through error. This should never occur")
 
 def maybe(func, fallback=None):
     """Decorator. If func returns None, then do fallback."""
