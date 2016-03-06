@@ -193,39 +193,47 @@ class Chain(ChainCategory, Monadic):
 class MaybeCategory(CategoryInterface):
     @pedanticmethod
     def compose(cls, self: 'cls.Morphism', morphism: 'cls.Morphism') -> 'cls.Morphism':
-        @functools.wraps(self)
-        def wrapped(value: 'Pysk.Element') -> 'Pysk.Element':
-            result = self.initial(value)
+        @functools.wraps(self.value)
+        def wrapped(initial):
+            result = self.value(initial)
             if result is None:
-                return morphism.initial(value)
+                return morphism.value(initial)
             else:
                 return result
         return cls(wrapped)
 
-    @pedanticmethod
+
+        # ----- old: worked, but didn't track initial, so
+        # --- couldn't do eager evaluation
+        #@functools.wraps(self)
+        #def wrapped(value: 'Pysk.Element') -> 'Pysk.Element':
+        #    result = self.value(value)
+        #    if result is None:
+        #        return morphism.value(value)
+        #    else:
+        #        return result
+        #return cls(wrapped)
+
+    @classmethod
     def identity(cls, self):
         return cls(None)
 
     @pedanticmethod
-    def call(cls, morph: 'cls.Morphism', element: 'cls.Element'):
-        #return cls(morph.value(element.value))
-        return element.apply(morph)
+    def call(cls, self: 'cls.Morphism', element: 'cls.Element'):
+        """Use the first non-None between:
+            element.value and result=self.value(element.initial)
+        """
+        if element.value is None:
+            return cls(self.value(element.initial), element.initial)
+        else:
+            return cls(element.value, element.initial)
 
     @pedanticmethod
-    def apply(cls, elm, morph):
-        return cls(morph.value(elm.value))
-        
-        # Experimenting, to get strict eval working: Maybe(value) >> f1
-        #previous = elm.value
-        #current = morph.value(elm.initial)
-        #if previous is None:
-        #    return cls(current, elm.initial)
-        #else:
-        #    return cls(previous, elm.initial)
-
-
-
-        
+    def apply(cls, self: 'cls.Element', morphism: 'cls.Morphism') -> 'cls.Element':
+        """
+        NOTE: morph.__call__ isn't working, because it defers to .map, which isn't working.
+        """
+        return cls.call(morphism, self)
 
     def __repr__(self):
         return Pysk.__repr__(self)
