@@ -6,13 +6,17 @@ Todo:
 import abc
 import functools
 
-from .methods import abstractpedanticmethod, pedanticmethod
+from .methods import abstractpedanticmethod, pedanticmethod, abstractclassproperty
 
 
 class CategoryInterface(metaclass=abc.ABCMeta):
     #
     #   Category Methods
     #
+    @abstractclassproperty
+    def Category(cls):
+        return NotImplemented
+
     @abstractpedanticmethod
     def identity(cls, self):
         return NotImplemented

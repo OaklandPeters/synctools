@@ -230,6 +230,11 @@ class MaybeCategory(CategoryInterface):
     def __call__(self, element):
         return self.call(element)
 
+    @classproperty
+    def Category(cls):
+        """This will go awry during inheritance."""
+        return cls
+
     def __eq__(self, other):
         if isinstance(other, Maybe):
             return self.value == other.value
@@ -281,6 +286,8 @@ class Maybe(MaybeCategory, MaybeFunctor, Monadic):
         # Case 3 - two things passed in
         elif len(args) == 2:
             self.value, self.initial = args[0], args[1]
+
+    Category = MaybeCategory
 
     @pedanticmethod
     def flatten(cls, element):
