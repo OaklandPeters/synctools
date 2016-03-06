@@ -61,6 +61,15 @@ def _compose(f, g):
         return f(g(arg))
     return _composed
 
+class NotPassed:
+    pass
+
+def _deoption(value, fallback):
+    if value is NotPassed:
+        return fallback
+    else:
+        return value
+
 
 class Monadic(MonadInterface):
     """
