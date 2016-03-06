@@ -91,13 +91,15 @@ class Monadic(MonadInterface):
     @pedanticmethod
     def __rshift__(cls, self, arg):
         """
-        Chain(f) >> g == Chain(compose(f, g))
-        Chain(f) >> x == Chain(f(x))
-        Chain(x) >> f == Chain(f(x))
-        Pipe(x) >> y -> TypeError
+        Monad(f) >> g  ==  Monad.compose(f, Monad(g))
+        Monad(f) >> x  ==  Monad.call(f, Monad(x))
+        Monad(x) >> g  ==  Monad.apply(x, Monad(g))
+        Monad(x) >> y  ==  Monad.append(x, Monad(y))
         """
+        # SPECIAL CASE:
+        # ... I think this ~ join
         if not isinstance(arg, cls):
-            return self >> cls(arg)
+            arg = cls(arg)
 
         if callable(self.value) and callable(arg.value):
             #return self.bind(arg.value)
@@ -115,11 +117,18 @@ class Monadic(MonadInterface):
     @pedanticmethod
     def __lshift__(cls, self, arg):
         """
-        This really needs to be written in terms of something like foldable and traversable
-        Chain(f) << x == f(x)
-        Chain(f) << g == compose(f, g)
-        Chain(x) << f == f(x)
-        Chain(x) << y -> TypeError
+        For now, this is a placeholder, that will not work in general.
+        For now, it will only work for Monads where extracting 'value'
+        extracts all of the meaningful information.
+
+        Eventually, it will need to be expressed in terms of 
+        'Traversable'-like functions. However, this is actually
+        hard and complex to express in the general-case.
+
+        Monad(f) << g  ==  compose(f, g)
+        Monad(f) << x  ==  call(f, x)
+        Monad(x) << g  ==  apply(x, g)
+        Monad(x) << y  ->  TypeError
         """
         try:
             # SPECIAL CASE:
