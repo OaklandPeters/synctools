@@ -121,9 +121,18 @@ class Monadic(Monad):
         For now, it will only work for Monads where extracting 'value'
         extracts all of the meaningful information.
 
+        Current kludge hinges on 'extract' - which is a piece of 
+        comonad.
+
+
         Eventually, it will need to be expressed in terms of 
         'Traversable'-like functions. However, this is actually
         hard and complex to express in the general-case.
+
+        To be totally rigorous, this method would have to take
+        an applicative Functor on the right-hand side
+        (a functor from the MonadCategory to Pysk).
+
 
         Monad(f) << g  ==  compose(f, g)
         Monad(f) << x  ==  call(f, x)
@@ -131,11 +140,14 @@ class Monadic(Monad):
         Monad(x) << y  ->  TypeError
         """
         if callable(self.value) and callable(arg):
-            return Pysk.compose(arg, self.value)
+            #return Pysk.compose(arg, self.value)
+            return cls.corate(self, arg)
         elif callable(self.value) and not callable(arg):
-            return self.value(arg)
+            #return self.value(arg)
+            return cls.deconstruct(self, arg)
         elif not callable(self.value) and callable(arg):
-            return arg(self.value)
+            #return arg(self.value)
+            return cls.dec
         elif not callable(self.value) and not callable(arg):
             raise TypeError("'Pipe() >> argument << argument' is invalid")
         else:
@@ -162,6 +174,12 @@ class ChainCategory(Category):
     @pedanticmethod
     def apply(cls, elm, morph):
         return cls(morph.value(elm.value))
+
+    def __eq__(self, other):
+        if hasattr(self, 'Category') and hasattr(other, 'Category'):
+            if self.Category == other.Category:
+                return self.value == other.value
+        return False
         
 
 class Chain(ChainCategory, Monadic):
@@ -186,6 +204,12 @@ class Chain(ChainCategory, Monadic):
     @pedanticmethod
     def map(cls, morph, value):
         return cls.call(morph, cls(value))
+
+    def __eq__(self, other):
+        if hasattr(self, 'Category') and hasattr(other, 'Category'):
+            if issubclass(other.Category, self.Category):
+                return self.value == other.value
+        return False
 
 
 class MaybeCategory(Category):
@@ -236,8 +260,9 @@ class MaybeCategory(Category):
         return cls
 
     def __eq__(self, other):
-        if isinstance(other, Maybe):
-            return self.value == other.value
+        if hasattr(self, 'Category') and hasattr(other, 'Category'):
+            if issubclass(other.Category, self.Category):
+                return (self.value == other.value) and (self.initial == other.initial)
         return False
 
 
@@ -250,12 +275,24 @@ class MaybeFunctor:
     def Codomain(cls):
         return MaybeCategory
 
+    #@classproperty
+    #def identity_morphism(cls):
+    #    return cls(_constant(None), None)
+
+    #@classmethod
+    #def construct(cls, element):
+    #  return cls(None, value)
+
+    #@classmethod
+    #def decorate(cls, morphism):
+    #    return cls(value, None)
+
     @classmethod
-    def construct(cls, value: 'Pysk.Element') -> 'cls.Element':
+    def construct(cls, value: 'cls.Domain.Element') -> 'cls.Codomain.Element':
         return cls(value)
 
     @classmethod
-    def decorate(cls, function: 'Pysk.Morphism') -> 'cls.Morphism':
+    def decorate(cls, function: 'cls.Domain.Morphism') -> 'cls.Codomain.Morphism':
         """
         This might need more elaborate behavior
         """
@@ -330,6 +367,12 @@ class Maybe(MaybeCategory, MaybeFunctor, Monadic):
         Chain(f) >> x == Chain(f(x))
         Chain(x) >> f == Chain(f(x))
         Pipe(x) >> y -> TypeError
+
+        This method means this works as well:
+            value = Maybe()
+            value >>= f
+            value >>= x
+
         """
         if not isinstance(arg, cls):
             arg = cls(arg)
@@ -344,6 +387,7 @@ class Maybe(MaybeCategory, MaybeFunctor, Monadic):
             raise TypeError("Operator 'Pipe(...) >> X', X must be callable")
         else:
             raise TypeError("Case fall-through error. This should never occur")
+
 
     @pedanticmethod
     def __lshift__(cls, self, arg):
@@ -404,6 +448,15 @@ def curried(func):
 
 
 
+traversals = [
+    
+]
+
+
+
+
+
+
 import unittest
 import itertools
 
@@ -457,12 +510,6 @@ m01_s1 = m01 >> s1
 #result = (m01 >> s1 << Pysk.identity)
 
 
-print()
-print("m01_s1:", type(m01_s1), m01_s1)
-print()
-import ipdb
-ipdb.set_trace()
-print()
 
 
 class PipeTestCase(unittest.TestCase):
@@ -481,6 +528,12 @@ class PipeTestCase(unittest.TestCase):
 
 
 class MaybeTestCase(unittest.TestCase):
+    def test_category_equality(self):
+        self.assertEqual(
+            m01 >> s1,
+            Maybe(s1) >> c1
+        )
+
     def test_sugar(self):
         self.assertEqual(((Maybe() >> c1 >> c2 >> c3) << s1), c1(s1))
 
@@ -496,14 +549,14 @@ class MaybeTestCase(unittest.TestCase):
         self.assertEqual((m2 << s2), c2(s2))
         self.assertEqual((m3 << s2), c2(s2))
 
-
     def test_composition_0_1(self):
         m01 = m0 >> c1
 
         self.assertEqual(m01 << s1, c1(s1))
-        self.assertEqual(m01 << Maybe(s1), c1(s1))
+        self.assertNotEqual(m01 << Maybe(s1), c1(s1))
+        #self.assertEqual(m01 << Maybe(s1), ???)
         self.assertEqual((m01 >> s1 << Pysk.identity), c1(s1))
-        self.assertEqual((m01 >> s1), Maybe(c1(s1)))
+        self.assertEqual((m01 >> s1), Maybe(c1(s1), s1))
 
     def test_composition_0_1_2(self):
         m012 = Maybe() >> c1 >> c2
@@ -513,6 +566,26 @@ class MaybeTestCase(unittest.TestCase):
 
     def test_composition_0_1_2_3(self):
         m0123 = Maybe() >> c1 >> c2 >> c3
+
+
+    def test_immediate_vs_lazy(self):
+        """
+        Ensure that immediate execution is equivalent to lazy execution,
+        when applied over a chain of functions.
+        Tests all possible orderings from the variable 'functions'
+        """
+        for value in samples:
+            immediate = Maybe()
+            immediate >>= value
+            lazy = Maybe()
+            for perm in itertools.permutations(functions):
+                for func in perm:
+                    immediate >>= func
+                    lazy >>= func
+                    self.assertEqual(lazy >> value, immediate)
+            lazy >>= value
+        self.assertEqual(lazy, immediate)
+
 
     def test_immediate_invariant(self):
         """
