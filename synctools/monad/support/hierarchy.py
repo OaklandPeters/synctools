@@ -151,14 +151,40 @@ class MonadicElement(MonadicElement):
 
 
 
-class Comonad(Functor):
+class Cofunctor(Functor):
     """
     A thing designed to make '<<' sensible.
     """
     @abstractpedanticmethod
-    def corate(cls, morphism) -> 'cls.D':
-        """Opposite of decorate"""
+    def corate(cls, morphism: 'cls.Codomain.Morphism') -> 'cls.Domain.Morphism':
+        """Conjugate of decorate
+        for all X in cls.Domain.Elements and f in cls.Domain.Morphisms(X -> Y)
+            cls.corate(cls.decorate(f))(X) == f(X)
+        """
+        return NotImplemented
 
+    @abstractpedanticmethod
+    def deconstruct(cls, element: 'cls.Codomain.Element') -> 'cls.Domain.Element':
+        """Conjugate of construct.
+        for all X in cls.Domain
+            cls.deconstruct(cls.construct(X)) == X
+        """
+        return NotImplemented
+
+
+class Comonad(Cofunctor, Category):
+    """
+    Honestly, at present, I have no idea how these functions
+    would work, or be used. I do suspect they will be closely related
+    to Comonad + Traversable though.
+    """
+    @abstractpedanticmethod
+    def comap(cls, element, deconstructor):
+        return NotImplemented
+
+    @abstractpedanticmethod
+    def unbind(cls, morphism, deconstructor):
+        return NotImplemented
 
 
 #
