@@ -4,6 +4,7 @@
 @todo: Build a monad-specific version of __rshift__, that rests on the category version, and adds use of decorate/construct
 """
 import abc
+import typing
 
 from .methods import abstractpedanticmethod, pedanticmethod, abstractclassproperty
 from .interfaces import Pysk, Monad, Category
@@ -39,6 +40,55 @@ class Morphism(metaclass=abc.ABCMeta):
 
     @abstractpedanticmethod
     def call(cls, self, element):
+        return NotImplemented
+
+
+class Category(metaclass=abc.ABCMeta):
+    #
+    #   Category Methods
+    #
+    @abstractclassproperty
+    def Category(cls):
+        return NotImplemented
+
+    @abstractclassproperty
+    def Element(cls):
+        return NotImplemented
+
+    @abstractclassproperty
+    def Morphism(cls):
+        return NotImplemented
+
+    @abstractclassproperty
+    def Object(cls):
+        return typing.Union[cls.Element, cls.Morphism]
+
+    @abstractpedanticmethod
+    def identity(cls, self):
+        return NotImplemented
+
+    @abstractpedanticmethod
+    def apply(cls, self: 'cls.Element', function: 'cls.Morphism') -> 'cls.Element':
+        return NotImplemented
+
+    @abstractpedanticmethod
+    def call(cls, self: 'cls.Morphism', element: 'cls.Element') -> 'cls.Element':
+        return NotImplemented
+
+    @abstractpedanticmethod
+    def compose(cls, self: 'cls.Morphism', function: 'cls.Morphism') -> 'cls.Morphism':
+        return NotImplemented
+
+    @classmethod
+    def __subclasshook__(cls, subclass):
+        if cls is Category:
+            for method in cls.__abstractmethods__:
+                for base in subclass.__mro__:
+                    if method in base.__dict__:
+                        break
+                    else:
+                        return NotImplemented
+            return True
         return NotImplemented
 
 
