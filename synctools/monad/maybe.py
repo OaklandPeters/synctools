@@ -1,16 +1,16 @@
 #!/usr/bin/env python3
 """
 TODO:
-* Make Monadic refer to .map/.bind, by dispatching in __rshift__.
-** Current cases: When isinstance(arg, cls) --> 
-** When not isinstance(arg, cls): if callable(arg) --> 
+* Put c1, c2, m0, m1 things inside unittest case
+* Move __init__ dispatching inside functor somewhere --> identity, decorate, construct based on whether input is Domain.Element or Domain.Morphism
 * Write check for: Maybe('x') >> Pipe(f)
 * Try... making monad method calls in __rshift__ use 'cls' version: cls.bind(self, arg)
 ** AFTER writing unit-tests...
 * Unittest for     (2) Maybe() >> identity
+* Simplify Maybe.__init__ by refering to construct, decorate, and identity
 
 INTERMEDIATE:
-
+* Validation: in __call__, that arg is correct monad
 * Handling Monadic.__rshift__ - when passed an object from a different monad
 * Rewrite Pipe and Maybe to be function-sequences, and write a reduce on that.
 ** I think, this reduction is 'compose'
@@ -141,13 +141,13 @@ class Monadic(Monad):
         """
         if callable(self.value) and callable(arg):
             #return Pysk.compose(arg, self.value)
-            return cls.corate(self, arg)
+            return _compose(cls.corate(self), arg)
         elif callable(self.value) and not callable(arg):
             #return self.value(arg)
-            return cls.deconstruct(self, arg)
+            return _call(cls.corate(self), arg)
         elif not callable(self.value) and callable(arg):
             #return arg(self.value)
-            return cls.dec
+            return _call(arg, cls.deconstruct(self))
         elif not callable(self.value) and not callable(arg):
             raise TypeError("'Pipe() >> argument << argument' is invalid")
         else:
@@ -197,6 +197,24 @@ class Chain(ChainCategory, Monadic):
     def __init__(self, value=_identity):
         self.value = value
 
+    # Functor and Cofunctor methods
+    @classmethod
+    def construct(cls, value):
+        return cls(value=value)
+
+    @classmethod
+    def deconstruct(cls, element):
+        return element.value
+
+    @classmethod
+    def decorate(cls, function):
+        return cls(function)
+
+    @classmethod
+    def corate(cls, morphism):
+        return morphism.value
+
+    # Monad methods
     @pedanticmethod
     def bind(cls, morph, func):
         return cls.compose(morph, cls(func))
@@ -213,6 +231,10 @@ class Chain(ChainCategory, Monadic):
 
 
 class MaybeCategory(Category):
+    def __init__(self, value, initial):
+        self.value = value
+        self.initial = initial
+
     @pedanticmethod
     def compose(cls, self: 'cls.Morphism', morphism: 'cls.Morphism') -> 'cls.Morphism':
         @functools.wraps(self.value)
@@ -222,11 +244,12 @@ class MaybeCategory(Category):
                 return morphism.value(initial)
             else:
                 return result
-        return cls(wrapped)
+        return cls(wrapped, None)
 
-    @classmethod
+    @pedanticmethod
     def identity(cls, self):
-        return cls(None)
+        return cls(_constant(None), None)
+        #return cls(None)
 
     @pedanticmethod
     def call(cls, self: 'cls.Morphism', element: 'cls.Element'):
@@ -275,28 +298,17 @@ class MaybeFunctor:
     def Codomain(cls):
         return MaybeCategory
 
-    #@classproperty
-    #def identity_morphism(cls):
-    #    return cls(_constant(None), None)
-
-    #@classmethod
-    #def construct(cls, element):
-    #  return cls(None, value)
-
-    #@classmethod
-    #def decorate(cls, morphism):
-    #    return cls(value, None)
+    @classproperty
+    def identity_morphism(cls):
+        return cls(_constant(None), None)
 
     @classmethod
-    def construct(cls, value: 'cls.Domain.Element') -> 'cls.Codomain.Element':
-        return cls(value)
+    def construct(cls, element: 'cls.Domain.Element') -> 'cls.Codomain.Element':
+        return cls(None, element)
 
     @classmethod
-    def decorate(cls, function: 'cls.Domain.Morphism') -> 'cls.Codomain.Morphism':
-        """
-        This might need more elaborate behavior
-        """
-        return cls.identity().compose(function)
+    def decorate(cls, morphism: 'cls.Domain.Morphism') -> 'cls.Codomain.Morphism':
+        return cls(morphism, None)
 
 
 class Maybe(MaybeCategory, MaybeFunctor, Monadic):
@@ -528,45 +540,65 @@ class PipeTestCase(unittest.TestCase):
 
 
 class MaybeTestCase(unittest.TestCase):
+
+    def assertSameOutcome(self, func_1, func_2):
+        exception_1 = None
+        exception_2 = None
+        outcome_1 = None
+        outcome_2 = None
+        try:
+            outcome_1 = func_1()
+        except Exception as exc:
+            exception_1 = exc
+        try:
+            outcome_2 = func_2()
+        except Exception as exc:
+            exception_2 = exc
+        self.assertEqual(outcome_1, outcome_2)
+        if (exception_1 is None) and (exception_2 is None):
+            self.assertTrue(True)
+        else:
+            self.assertEqual(type(exception_1), type(exception_2))        
+
+    def test_rshift_sugar(self):
+        for f1 in functions:
+            for v1 in values:
+                self.assertSameOutcome(
+                    lambda: Maybe(f1) >> v1,
+                    lambda: Maybe(f1).call(Maybe(v1))
+                )                    
+                for f2 in functions:
+                    self.assertSameOutcome(
+                        lambda: Maybe(f1) >> f2 >> v1,
+                        lambda: Maybe(f1).compose(Maybe(f2)).call(Maybe(v1)),
+                    )
+        for v1 in values:
+            for f1 in functions:
+                self.assertSameOutcome(
+                    lambda: Maybe(v1) >> f1,
+                    lambda: Maybe(v1).apply(Maybe(f1)),
+                )
+            for v2 in values:
+                self.assertSameOutcome(
+                    lambda: Maybe(v1) >> v2,
+                    lambda: Maybe(v1).apply(Maybe(v2))
+                )
+
     def test_category_equality(self):
-        self.assertEqual(
-            m01 >> s1,
-            Maybe(s1) >> c1
-        )
+        for value in values:
+            self.assertEqual(Maybe(value), Maybe() >> value)
+            self.assertEqual(Maybe(value), Maybe(value) >> Maybe())
+        double = lambda x: x*2
+        for number in range(10):
+            self.assertEqual(Maybe(number) >> double, Maybe(double) >> number)
 
-    def test_sugar(self):
-        self.assertEqual(((Maybe() >> c1 >> c2 >> c3) << s1), c1(s1))
-
-    def test_s1(self):
-        self.assertEqual((m0 << s1), s1)
-        self.assertEqual((m1 << s1), c1(s1))
-        self.assertEqual((m2 << s1), c1(s1))
-        self.assertEqual((m3 << s1), c1(s1))
-
-    def test_s2(self):
-        self.assertEqual((m0 << s2), s2)
-        self.assertEqual((m1 << s2), None)
-        self.assertEqual((m2 << s2), c2(s2))
-        self.assertEqual((m3 << s2), c2(s2))
-
-    def test_composition_0_1(self):
-        m01 = m0 >> c1
-
-        self.assertEqual(m01 << s1, c1(s1))
-        self.assertNotEqual(m01 << Maybe(s1), c1(s1))
-        #self.assertEqual(m01 << Maybe(s1), ???)
-        self.assertEqual((m01 >> s1 << Pysk.identity), c1(s1))
-        self.assertEqual((m01 >> s1), Maybe(c1(s1), s1))
-
-    def test_composition_0_1_2(self):
-        m012 = Maybe() >> c1 >> c2
-
-        m012 = m1 >> c2
-        m0123 = m2 >> c3
-
-    def test_composition_0_1_2_3(self):
-        m0123 = Maybe() >> c1 >> c2 >> c3
-
+    def test_application(self):
+        for function in functions:
+            for value in values:
+                self.assertEqual(
+                    Maybe(function) << value,
+                    function(value)
+                )
 
     def test_immediate_vs_lazy(self):
         """
@@ -594,25 +626,12 @@ class MaybeTestCase(unittest.TestCase):
         """
         for f1, f2 in itertools.product(functions, repeat=2):
             for val in values:
-                try:
-                    self.assertEqual(
-                        Maybe(f1) >> f2 >> s1 << Pysk.identity,
-                        Maybe(s1) >> f1 >> f2 << Pysk.identity
-                    )
-                except AssertionError as exc:
+                self.assertEqual(
+                    Maybe(f1) >> f2 >> s1 << Pysk.identity,
+                    Maybe(s1) >> f1 >> f2 << Pysk.identity
+                )
 
-                    (Maybe(s1) >> f1).rshift(f2)
-
-                    print()
-                    print(f1, f2, s1)
-                    print("exc:", type(exc), exc)
-                    print()
-                    import ipdb
-                    ipdb.set_trace()
-                    print()
-                    
-
-    def test_identity_law(self):
+    def test_identity_with_zero_law(self):
         for f1 in functions:
             for val in values:
                 self.assertEqual(
@@ -620,15 +639,110 @@ class MaybeTestCase(unittest.TestCase):
                     Maybe(f1) << val
                 )
 
-    #def test_play(self):
-    #    result = Maybe(s1) >> c1
+                self.assertEqual(
+                    Maybe(f1) << val,
+                    Maybe(f1) >> Maybe.identity << val
+                )
 
-    #    print()
-    #    print("result:", type(result), result)
-    #    print()
-    #    import ipdb
-    #    ipdb.set_trace()
-    #    print()
+                self.assertEqual(
+                    Maybe(f1) << val,
+                    Maybe(f1) >> _identity << val
+                )
+
+    #def test_identity_mapping(self):
+    #    """
+    #    This property fails, because the maybe-category is not properly behaved.
+    #    """
+    #    for val in values:
+    #        self.assertEqual(
+    #            Maybe() << val,
+    #            Maybe() >> _identity << val
+    #        )
+
+    def test_identity_composition(self):
+        for value in values:
+            for func in functions:
+                self.assertEqual(
+                    Maybe() >> func << value,
+                    func(value)
+                )
+                self.assertEqual(
+                    Maybe(func) >> Maybe() << value,
+                    func(value)
+                )
+
+    #def test_map_composition_law(self):
+    #    try:
+    #        for val in values:
+    #            for f1, f2 in itertools.product(functions, repeat=2):
+    #                self.assertEqual(
+    #                    Maybe() >> _compose(f1, f2) << val,
+    #                    Maybe() >> f1 >> f2 << val
+    #                )
+    #    except AssertionError as exc:
+    #        pass
+
+class FunctorLawTests:
+    """
+    Abstractproperties:
+        Domain
+        Codomain
+        Functor
+        domain_elements
+        domain_morphisms  
+    """
+    @abc.abstractproperty
+    def Domain(self) -> 'Category':
+        return NotImplemented
+
+    @abc.abstractproperty
+    def Codomain(self) -> 'Category':
+        return NotImplemented
+
+    @abc.abstractproperty
+    def Functor(self) -> 'Functor':
+        return NotImplemented
+
+    def test_map_identity(self):
+        """
+        fmap id  =  id
+        """
+        for value in self.domain_elements:
+            self.assertEqual(
+                self.Codomain.call(
+                    self.Functor.decorate(self.Domain.identity),
+                    self.Functor.construct(value)
+                ),
+                self.Functor.construct(
+                    self.Domain.identity(value)
+                )
+            )
+
+    def test_map_composition(self):
+        """
+        fmap (g . f)  =  fmap g . fmap f
+        """
+        for f, g in itertools.product(self.domain_morphisms, repeat=2):
+            for x in self.domain_elements:
+                left = self.Functor.decorate(
+                    self.Domain.compose(f, g)
+                )
+                right = self.Codomain.compose(
+                    self.Functor.decorate(f),
+                    self.Functor.decorate(g)
+                )
+                self.assertEqual(
+                    self.Codomain.call(left, Maybe(x)),
+                    self.Codomain.call(right, Maybe(x))
+                )
+
+
+class MaybeFunctorTests(FunctorLawTests, unittest.TestCase):
+    Domain = Pysk
+    Codomain = MaybeCategory
+    Functor = Maybe
+    domain_elements = values
+    domain_morphisms = functions
 
 
 if __name__ == "__main__":
