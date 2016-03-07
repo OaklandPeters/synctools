@@ -1,6 +1,9 @@
 #!/usr/bin/env python3
 """
 TODO:
+* Remove reference to .value in Monadic: __rshift__ should use is_element/is_morphism
+* Remove unneeded utility functions like _thunk.
+* Replace _underscore utility methods with references to Pysk
 * Put c1, c2, m0, m1 things inside unittest case
 * Move __init__ dispatching inside functor somewhere --> identity, decorate, construct based on whether input is Domain.Element or Domain.Morphism
 * Write check for: Maybe('x') >> Pipe(f)
@@ -8,14 +11,19 @@ TODO:
 ** AFTER writing unit-tests...
 * Unittest for     (2) Maybe() >> identity
 * Simplify Maybe.__init__ by refering to construct, decorate, and identity
+* [high] bind/map/flatten for monad. Binding in functions which return Maybe
+
 
 INTERMEDIATE:
+* Merge hierarchy.py into interfaces.py
 * Validation: in __call__, that arg is correct monad
 * Handling Monadic.__rshift__ - when passed an object from a different monad
 * Rewrite Pipe and Maybe to be function-sequences, and write a reduce on that.
 ** I think, this reduction is 'compose'
 * Rewrite: using Element/Morphism, as shown in hierarchy.py. Will cut down on the number of disptaches, and make Element not express a __call__ function.
 ** Ideally, express this only at level of 'Monadic' sugar methods. IE the only replacement will be Monadic-->MonadicElement,MonadicMorphism + changing what is returned by the __new__ method
+* Write PyskElement and PyskMorphism
+* Write instance-level __instancecheck__ mechanisms, and connect to PyskMorphism
 
 
 FOLDABLE/TRAVERSABLE:
@@ -24,10 +32,12 @@ FOLDABLE/TRAVERSABLE:
 import functools
 import inspect
 import abc
+import typing
 
 
 from support.methods import pedanticmethod, classproperty
-from support.interfaces import Monad, Category, Pysk
+from support.interfaces import Monad, Category, CategoryError
+from support.pysk import Pysk
 
 def _identity(x):
     return x
@@ -60,15 +70,6 @@ def _compose(f, g):
     def _composed(arg):
         return f(g(arg))
     return _composed
-
-class NotPassed:
-    pass
-
-def _deoption(value, fallback):
-    if value is NotPassed:
-        return fallback
-    else:
-        return value
 
 
 class Monadic(Monad):
@@ -246,10 +247,9 @@ class MaybeCategory(Category):
                 return result
         return cls(wrapped, None)
 
-    @pedanticmethod
-    def identity(cls, self):
+    @classproperty
+    def identity(cls):
         return cls(_constant(None), None)
-        #return cls(None)
 
     @pedanticmethod
     def call(cls, self: 'cls.Morphism', element: 'cls.Element'):
@@ -290,6 +290,45 @@ class MaybeCategory(Category):
 
 
 class MaybeFunctor:
+    #def __new__(cls, *args: 'typing.Tuple[cls.Domain.Object]') -> 'cls.Codomain.Object':
+    #    if len(args) == 2:
+    #        return cls.decorate(args[0])
+    #        #return object.__new__(cls)
+    #        #cls(args[0], args[1])
+    #    elif len(args) == 1:
+    #        obj = args[0]
+    #        if obj == cls.Domain.identity:
+    #            return cls.Codomain.identity
+    #        elif cls.Domain.is_element(obj):
+    #            return cls.construct(obj)
+    #        elif cls.Domain.is_morphism(obj):
+    #            return cls.decorate(obj)
+    #        else:
+    #            raise CategoryError(str.format(
+    #                "Argument is not an object in Domain {0}", cls.Domain.__name__))
+    #    elif len(args) == 0:
+    #        return cls.Codomain.identity
+    #    else:
+    #        raise CategoryError("Too many arguments to Functor.")
+
+    @classmethod
+    def dispatch(cls, obj):
+        """Convenience function for constructing."""
+        if obj == cls.Domain.identity:
+            return cls.Codomain.identity
+        elif cls.Domain.is_element(obj):
+            return cls.construct(obj)
+        elif cls.Domain.is_morphism(obj):
+            return cls.decorate(obj)
+        else:
+            raise CategoryError(str.format(
+                "Argument is not an object in Domain {0}", cls.Domain.__name__))
+
+
+    @classproperty
+    def Object(cls):
+        return typing.Union[cls.Domain.Element, cls.Domain.Morphism]
+
     @classproperty
     def Domain(cls):
         return Pysk
@@ -309,6 +348,17 @@ class MaybeFunctor:
     @classmethod
     def decorate(cls, morphism: 'cls.Domain.Morphism') -> 'cls.Codomain.Morphism':
         return cls(morphism, None)
+
+    @pedanticmethod
+    def is_element(cls, obj):
+        return isinstance(obj, Maybe)
+
+    @pedanticmethod
+    def is_morphism(cls, obj):
+        if isinstance(obj, Maybe):
+            if callable(obj):
+                return True
+        return False
 
 
 class Maybe(MaybeCategory, MaybeFunctor, Monadic):
@@ -638,16 +688,25 @@ class MaybeTestCase(unittest.TestCase):
                     Maybe() >> f1 << val,
                     Maybe(f1) << val
                 )
-
                 self.assertEqual(
                     Maybe(f1) << val,
                     Maybe(f1) >> Maybe.identity << val
                 )
+                try:
+                    self.assertEqual(
+                        Maybe(f1) << val,
+                        Maybe(f1) >> _identity << val
+                    )                    
+                except AssertionError as exc:
 
-                self.assertEqual(
-                    Maybe(f1) << val,
-                    Maybe(f1) >> _identity << val
-                )
+                    print()
+                    print("exc:", type(exc), exc)
+                    print()
+                    import ipdb
+                    ipdb.set_trace()
+                    print()
+                
+
 
     #def test_identity_mapping(self):
     #    """
