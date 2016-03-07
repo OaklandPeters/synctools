@@ -247,9 +247,13 @@ class MaybeCategory(Category):
                 return result
         return cls(wrapped, None)
 
+    @staticmethod
+    def _identity(value):
+        return None
+
     @classproperty
     def identity(cls):
-        return cls(_constant(None), None)
+        return cls(cls._identity, None)
 
     @pedanticmethod
     def call(cls, self: 'cls.Morphism', element: 'cls.Element'):
@@ -290,27 +294,6 @@ class MaybeCategory(Category):
 
 
 class MaybeFunctor:
-    #def __new__(cls, *args: 'typing.Tuple[cls.Domain.Object]') -> 'cls.Codomain.Object':
-    #    if len(args) == 2:
-    #        return cls.decorate(args[0])
-    #        #return object.__new__(cls)
-    #        #cls(args[0], args[1])
-    #    elif len(args) == 1:
-    #        obj = args[0]
-    #        if obj == cls.Domain.identity:
-    #            return cls.Codomain.identity
-    #        elif cls.Domain.is_element(obj):
-    #            return cls.construct(obj)
-    #        elif cls.Domain.is_morphism(obj):
-    #            return cls.decorate(obj)
-    #        else:
-    #            raise CategoryError(str.format(
-    #                "Argument is not an object in Domain {0}", cls.Domain.__name__))
-    #    elif len(args) == 0:
-    #        return cls.Codomain.identity
-    #    else:
-    #        raise CategoryError("Too many arguments to Functor.")
-
     @classmethod
     def dispatch(cls, obj):
         """Convenience function for constructing."""
@@ -370,14 +353,22 @@ class Maybe(MaybeCategory, MaybeFunctor, Monadic):
     def __init__(self, *args):
         # Case 1 - no arguments --> identity morphism
         if len(args) == 0:
-            self.value = _constant(None)  # might have to set = _constant(None)
+            #self.value = _constant(None)  # might have to set = _constant(None)
+            self.value = self.Codomain._identity
             self.initial = None
         # Case 2 - only 1 thing passed in
+        # I'd REALLY like to handle this in Functor
+        # But I don't know how yet
         elif len(args) == 1:
             # Morphism
             if callable(args[0]):
-                self.value = args[0]
-                self.initial = None
+                # Special case
+                if args[0] == self.Domain.identity:
+                    self.value = self.Codomain._identity
+                    self.initial = None
+                else:
+                    self.value = args[0]
+                    self.initial = None
             # Element
             else:
                 self.value = None
@@ -551,7 +542,7 @@ c1 = crop('http://opeterml1297110.njgroup.com:7000/')
 c2 = crop('http://cdn.theatlantic.com/assets/')
 c3 = crop('https://cdn.theatlantic.com/assets/')
 
-functions = [c1, c2, c3, Pysk.identity, _constant(None)]
+functions = [c1, c2, c3, Pysk.identity, Maybe.identity]
 values = [s1, s2, s3, 'naaaanaaa', '']
 
 m0 = Maybe()
@@ -705,18 +696,16 @@ class MaybeTestCase(unittest.TestCase):
                     import ipdb
                     ipdb.set_trace()
                     print()
-                
 
-
-    #def test_identity_mapping(self):
-    #    """
-    #    This property fails, because the maybe-category is not properly behaved.
-    #    """
-    #    for val in values:
-    #        self.assertEqual(
-    #            Maybe() << val,
-    #            Maybe() >> _identity << val
-    #        )
+    def test_identity_mapping(self):
+        """
+        This property fails, because the maybe-category is not properly behaved.
+        """
+        for val in values:
+            self.assertEqual(
+                Maybe() << val,
+                Maybe() >> _identity << val
+            )
 
     def test_identity_composition(self):
         for value in values:
@@ -730,16 +719,16 @@ class MaybeTestCase(unittest.TestCase):
                     func(value)
                 )
 
-    #def test_map_composition_law(self):
-    #    try:
-    #        for val in values:
-    #            for f1, f2 in itertools.product(functions, repeat=2):
-    #                self.assertEqual(
-    #                    Maybe() >> _compose(f1, f2) << val,
-    #                    Maybe() >> f1 >> f2 << val
-    #                )
-    #    except AssertionError as exc:
-    #        pass
+    def test_map_composition_law(self):
+        try:
+            for val in values:
+                for f1, f2 in itertools.product(functions, repeat=2):
+                    self.assertEqual(
+                        Maybe() >> _compose(f1, f2) << val,
+                        Maybe() >> f1 >> f2 << val
+                    )
+        except AssertionError as exc:
+            pass
 
 class FunctorLawTests:
     """
