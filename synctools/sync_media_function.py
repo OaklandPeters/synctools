@@ -6,7 +6,7 @@ Useage:
 
 rsync-media img/mt/2014/09
 
-Which you can copy paste from the error message that will 
+Which you can copy paste from the error message that will
 make you want to rsync.
 
 
@@ -25,28 +25,33 @@ But should write to:
 
 Updating a few things:
 - changing calculation of local_path:
-    - Uses os.path.join - to prevent bug if you forget to include trailing '/' on subfolder (when entered from commandline)
-    - Does not append "..", because it creates a problem when rooting at a higher level (eg img/2015 )
-        - ? Does the new form work with subfolders like: img/2015/02/ ? 
-- ATLCMS: changed path calculations - so it is OS independent (basically no direct reference to '/')
+    - Uses os.path.join - to prevent bug if you forget to include trailing '/'
+        on subfolder (when entered from commandline)
+    - Does not append "..", because it creates a problem when rooting at a
+        higher level (eg img/2015 )
+        - ? Does the new form work with subfolders like: img/2015/02/ ?
+- ATLCMS: changed path calculations - so it is OS independent (basically no
+    direct reference to '/')
 - Creating parent directories: now can create more than the topmost directory.
 """
-import os, sys
+import os
 
-#ATLCMS = os.path.realpath(os.path.join(os.path.dirname(__file__), "..", "Atlantic-CMS"))
+
 ATLCMS_PATH = "/Users/opeters/workspace/Atlantic-CMS"
 LOCAL_MEDIA_PATH = os.path.join(ATLCMS_PATH, "assets", "media")
+REMOTE_MEDIA_PATH = "/www/cmsprod/shared/assets/media/"
 
-def sync_media(subfolder):
-    """
-    """
+
+def make_rsync_command(subfolder,
+                       local_media_path=LOCAL_MEDIA_PATH,
+                       remote_media_path=REMOTE_MEDIA_PATH):
     if ".." in subfolder:
         raise ValueError("Subfolder should not contain '..'")
     elif subfolder[0] == os.path.sep:
         raise ValueError("Subfolder should not be an absolute path (~begins with '/').")
 
-    remote_path = os.path.join("/www/cmsprod/shared/assets/media/", subfolder)
-    local_path = os.path.realpath(os.path.join(LOCAL_MEDIA_PATH, subfolder, '..'))
+    remote_path = os.path.join(remote_media_path, subfolder)
+    local_path = os.path.realpath(os.path.join(local_media_path, subfolder, '..'))
 
     def partial_paths(base, folder):
         parts = [part for part in folder.split(os.path.sep) if part]
@@ -62,6 +67,19 @@ def sync_media(subfolder):
         "remote_path": remote_path,
         "local_path": local_path,
     }
+
+    return command
+
+
+def sync_media(subfolder,
+               local_media_path=LOCAL_MEDIA_PATH,
+               remote_media_path=REMOTE_MEDIA_PATH):
+    """
+    """
+    command = make_rsync_command(
+        subfolder,
+        local_media_path=local_media_path,
+        remote_media_path=remote_media_path)
 
     print(command)
     os.system(command)
